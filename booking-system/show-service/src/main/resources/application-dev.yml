@@ -1,0 +1,10 @@
+﻿spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/show_service_dev
+    username: postgres
+    password: postgres
+  kafka:
+    bootstrap-servers: localhost:9092
+  redis:
+    host: localhost
+    port: 6379

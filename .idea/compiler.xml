@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+      </profile>
+      <profile name="Annotation profile for movie-booking-platform" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.46/lombok-1.18.46.jar" />
+        </processorPath>
+        <module name="auth-service" />
+        <module name="payment-service" />
+        <module name="show-service" />
+        <module name="common" />
+        <module name="gateway-service" />
+        <module name="booking-service" />
+        <module name="movie-service" />
+        <module name="theatre-service" />
+        <module name="notification-service" />
+      </profile>
+    </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="booking-system.main" target="21" />
+      <module name="booking-system.test" target="21" />
+    </bytecodeTargetLevel>
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="auth-service" options="-parameters" />
+      <module name="booking-service" options="-parameters" />
+      <module name="booking-system" options="" />
+      <module name="booking-system.main" options="-parameters" />
+      <module name="booking-system.test" options="-parameters" />
+      <module name="common" options="-parameters" />
+      <module name="gateway-service" options="-parameters" />
+      <module name="movie-service" options="-parameters" />
+      <module name="notification-service" options="-parameters" />
+      <module name="payment-service" options="-parameters" />
+      <module name="show-service" options="-parameters" />
+      <module name="theatre-service" options="-parameters" />
+    </option>
+  </component>
+</project>
