@@ -13,4 +13,6 @@ public interface CityRepository extends JpaRepository<City, Integer> {
     Optional<City> findByNameIgnoreCaseAndStateIgnoreCase(String name, String state);
 
     List<City> findByNameContainingIgnoreCase(String name);
+
+    boolean existsByNameIgnoreCaseAndStateIgnoreCase(String name, String state);
 }
