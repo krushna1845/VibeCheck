@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -29,12 +30,15 @@ public class DefaultShowClient implements ShowClient {
         if (showId == null) {
             return Optional.empty();
         }
+
         return Optional.of(new ShowDto(
                 showId,
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 UUID.randomUUID(),
-                "SCHEDULED"
+                "SCHEDULED",
+                Instant.now().plusSeconds(86400),
+                Instant.now().plusSeconds(93600)
         ));
     }
 

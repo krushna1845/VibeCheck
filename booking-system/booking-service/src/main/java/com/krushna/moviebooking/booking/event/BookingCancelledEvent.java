@@ -11,6 +11,9 @@ import java.util.UUID;
  */
 @Builder
 public record BookingCancelledEvent(
+        String eventId,
+        String eventType,
+        Integer eventVersion,
         UUID bookingId,
         String bookingReference,
         UUID userId,
@@ -18,4 +21,11 @@ public record BookingCancelledEvent(
         List<UUID> showSeatIds,
         String reason,
         Instant timestamp
-) {}
+) {
+    public static class BookingCancelledEventBuilder {
+        private String eventId = UUID.randomUUID().toString();
+        private String eventType = "BOOKING_CANCELLED";
+        private Integer eventVersion = 1;
+        private Instant timestamp = Instant.now();
+    }
+}

@@ -9,9 +9,10 @@ import com.krushna.moviebooking.booking.event.*;
 import com.krushna.moviebooking.booking.exception.*;
 import com.krushna.moviebooking.booking.mapper.BookingMapper;
 import com.krushna.moviebooking.booking.repository.BookingRepository;
+import com.krushna.moviebooking.booking.repository.BookingSpecification;
 import com.krushna.moviebooking.booking.service.BookingService;
-import com.krushna.moviebooking.booking.service.BookingValidator;
 import com.krushna.moviebooking.booking.service.SeatLockService;
+import com.krushna.moviebooking.booking.validator.BookingValidationFacade;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -43,7 +44,7 @@ import java.util.UUID;
  * <p><b>Validation strategy</b>:
  * Bean validation fires at controller boundary via {@code @Valid}.
  * Business rules (show existence, seat availability, concurrency lock, state transition)
- * are validated in this layer before persistent writes.
+ * are validated in this layer via {@link BookingValidationFacade} before persistent writes.
  */
 @Slf4j
 @Service
@@ -58,7 +59,7 @@ public class BookingServiceImpl implements BookingService {
     private static final long RESERVATION_TTL_MINUTES = 5;
 
     private final BookingRepository bookingRepository;
-    private final BookingValidator bookingValidator;
+    private final BookingValidationFacade bookingValidationFacade;
     private final SeatLockService seatLockService;
     private final ShowClient showClient;
     private final PaymentClient paymentClient;
@@ -78,7 +79,7 @@ public class BookingServiceImpl implements BookingService {
         log.info("Creating booking for userId: {}, showId: {}, seats: {}",
                 request.userId(), request.showId(), request.showSeatIds());
 
-        bookingValidator.validateBookingRequest(request);
+        bookingValidationFacade.validateBookingCreation(request);
 
         String bookingReference = generateBookingReference();
 

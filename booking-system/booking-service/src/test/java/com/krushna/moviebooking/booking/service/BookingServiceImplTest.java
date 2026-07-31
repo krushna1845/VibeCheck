@@ -40,7 +40,7 @@ class BookingServiceImplTest {
     private BookingRepository bookingRepository;
 
     @Mock
-    private BookingValidator bookingValidator;
+    private com.krushna.moviebooking.booking.validator.BookingValidationFacade bookingValidationFacade;
 
     @Mock
     private SeatLockService seatLockService;
@@ -119,7 +119,7 @@ class BookingServiceImplTest {
 
         assertThat(response).isNotNull();
         assertThat(response.bookingReference()).isEqualTo(bookingRef);
-        verify(bookingValidator).validateBookingRequest(request);
+        verify(bookingValidationFacade).validateBookingCreation(request);
         verify(seatLockService).lockSeats(any());
         verify(bookingRepository).save(any(Booking.class));
         verify(bookingEventPublisher).publishBookingCreated(any());

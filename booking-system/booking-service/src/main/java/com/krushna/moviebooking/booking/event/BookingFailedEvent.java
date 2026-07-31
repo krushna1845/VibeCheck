@@ -11,6 +11,9 @@ import java.util.UUID;
  */
 @Builder
 public record BookingFailedEvent(
+        String eventId,
+        String eventType,
+        Integer eventVersion,
         UUID bookingId,
         String bookingReference,
         UUID userId,
@@ -18,4 +21,11 @@ public record BookingFailedEvent(
         List<UUID> showSeatIds,
         String failureReason,
         Instant timestamp
-) {}
+) {
+    public static class BookingFailedEventBuilder {
+        private String eventId = UUID.randomUUID().toString();
+        private String eventType = "BOOKING_FAILED";
+        private Integer eventVersion = 1;
+        private Instant timestamp = Instant.now();
+    }
+}

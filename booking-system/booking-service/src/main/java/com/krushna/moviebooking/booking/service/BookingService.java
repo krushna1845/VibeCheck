@@ -11,7 +11,7 @@ import java.util.UUID;
  * Service interface governing the complete lifecycle of movie ticket bookings.
  *
  * <p>Provides methods for booking creation, patch updates, payment confirmation,
- * cancellation, reservation expiration, soft-deletion, and pageable queries.
+ * cancellation, reservation expiration, soft-deletion, pageable queries, and admin search.
  */
 public interface BookingService {
 
@@ -30,7 +30,7 @@ public interface BookingService {
      * Updates an existing active booking using patch semantics.
      * Only non-null fields in {@code request} will update the underlying entity.
      *
-     * @param id Primary UUID of the booking
+     * @param id      Primary UUID of the booking
      * @param request Patch update request payload
      * @return Updated {@link BookingResponse}
      * @throws com.krushna.moviebooking.booking.exception.BookingNotFoundException if no active booking exists with ID
@@ -44,10 +44,10 @@ public interface BookingService {
      * Operation is idempotent: repeated calls for an already confirmed booking return cleanly.
      *
      * @param bookingReference Unique 12-character booking reference code
-     * @param paymentId Transaction ID from payment gateway
+     * @param paymentId        Transaction ID from payment gateway
      * @return Confirmed {@link BookingResponse}
      * @throws com.krushna.moviebooking.booking.exception.BookingNotFoundException if reference is not found
-     * @throws com.krushna.moviebooking.booking.exception.BookingExpiredException if reservation expired
+     * @throws com.krushna.moviebooking.booking.exception.BookingExpiredException  if reservation expired
      */
     BookingResponse confirmBooking(String bookingReference, String paymentId);
 
@@ -56,7 +56,7 @@ public interface BookingService {
      * and emits a {@code BookingCancelledEvent}.
      *
      * @param bookingReference Unique 12-character booking reference code
-     * @param reason Cancellation rationale
+     * @param reason           Cancellation rationale
      * @return Cancelled {@link BookingResponse}
      */
     BookingResponse cancelBooking(String bookingReference, String reason);
@@ -103,7 +103,7 @@ public interface BookingService {
     /**
      * Retrieves a page of bookings for a specific customer user.
      *
-     * @param userId Customer user UUID
+     * @param userId   Customer user UUID
      * @param pageable Page request parameters
      * @return Page of {@link BookingSummary}
      */
@@ -116,4 +116,14 @@ public interface BookingService {
      * @return List of {@link BookingSummary}
      */
     List<BookingSummary> getShowBookings(UUID showId);
+
+    /**
+     * Admin search: retrieves a filtered, sorted, and paginated list of bookings.
+     * Supports optional filtering on status, userId, showId, and createdAt range.
+     *
+     * @param criteria Admin search filter (all fields optional)
+     * @param pageable Pagination and sort parameters
+     * @return Page of {@link BookingSummary}
+     */
+    Page<BookingSummary> adminSearch(BookingSearchCriteria criteria, Pageable pageable);
 }

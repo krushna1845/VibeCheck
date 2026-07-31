@@ -4,6 +4,7 @@ import com.krushna.moviebooking.booking.entity.Booking;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -14,7 +15,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface BookingRepository extends JpaRepository<Booking, UUID> {
+public interface BookingRepository extends JpaRepository<Booking, UUID>, JpaSpecificationExecutor<Booking> {
 
     Optional<Booking> findByBookingReference(String bookingReference);
 
@@ -24,4 +25,7 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
 
     @Query("SELECT b FROM Booking b WHERE b.status = :status AND b.expiresAt < :now")
     List<Booking> findExpiredBookings(@Param("status") String status, @Param("now") Instant now);
+
+    @Query("SELECT b FROM Booking b WHERE b.status IN :statuses AND b.expiresAt < :now AND b.deletedAt IS NULL")
+    List<Booking> findExpiredBookingsByStatuses(@Param("statuses") List<String> statuses, @Param("now") Instant now);
 }

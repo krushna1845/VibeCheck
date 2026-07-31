@@ -571,6 +571,7 @@ The Booking Database remains the single source of truth for confirmed bookings, 
 
 ---
 
+
 # 9. Key Architectural Principles
 
 The Booking Engine follows the following architectural principles:

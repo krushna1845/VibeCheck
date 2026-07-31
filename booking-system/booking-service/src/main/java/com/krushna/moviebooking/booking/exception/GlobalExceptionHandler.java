@@ -70,6 +70,60 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage(), null);
     }
 
+    @ExceptionHandler(UserNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleUserNotFound(UserNotFoundException ex) {
+        log.warn("User not found: {}", ex.getMessage());
+        return buildResponse(HttpStatus.NOT_FOUND, "User Not Found", ex.getMessage(), null);
+    }
+
+    @ExceptionHandler(UserInactiveException.class)
+    public ResponseEntity<ErrorResponse> handleUserInactive(UserInactiveException ex) {
+        log.warn("User inactive: {}", ex.getMessage());
+        return buildResponse(HttpStatus.FORBIDDEN, "User Inactive", ex.getMessage(), null);
+    }
+
+    @ExceptionHandler(UserNotAuthorizedException.class)
+    public ResponseEntity<ErrorResponse> handleUserNotAuthorized(UserNotAuthorizedException ex) {
+        log.warn("User unauthorized: {}", ex.getMessage());
+        return buildResponse(HttpStatus.FORBIDDEN, "Unauthorized", ex.getMessage(), null);
+    }
+
+    @ExceptionHandler(ShowNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleShowNotFound(ShowNotFoundException ex) {
+        log.warn("Show not found: {}", ex.getMessage());
+        return buildResponse(HttpStatus.NOT_FOUND, "Show Not Found", ex.getMessage(), null);
+    }
+
+    @ExceptionHandler(ShowInactiveException.class)
+    public ResponseEntity<ErrorResponse> handleShowInactive(ShowInactiveException ex) {
+        log.warn("Show inactive: {}", ex.getMessage());
+        return buildResponse(HttpStatus.BAD_REQUEST, "Show Inactive", ex.getMessage(), null);
+    }
+
+    @ExceptionHandler(ShowExpiredException.class)
+    public ResponseEntity<ErrorResponse> handleShowExpired(ShowExpiredException ex) {
+        log.warn("Show expired: {}", ex.getMessage());
+        return buildResponse(HttpStatus.BAD_REQUEST, "Show Expired", ex.getMessage(), null);
+    }
+
+    @ExceptionHandler(SeatNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleSeatNotFound(SeatNotFoundException ex) {
+        log.warn("Seat not found: {}", ex.getMessage());
+        return buildResponse(HttpStatus.NOT_FOUND, "Seat Not Found", ex.getMessage(), null);
+    }
+
+    @ExceptionHandler(SeatInactiveException.class)
+    public ResponseEntity<ErrorResponse> handleSeatInactive(SeatInactiveException ex) {
+        log.warn("Seat inactive: {}", ex.getMessage());
+        return buildResponse(HttpStatus.BAD_REQUEST, "Seat Inactive", ex.getMessage(), null);
+    }
+
+    @ExceptionHandler(InvalidBookingOwnershipException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidOwnership(InvalidBookingOwnershipException ex) {
+        log.warn("Invalid booking ownership: {}", ex.getMessage());
+        return buildResponse(HttpStatus.FORBIDDEN, "Access Denied", ex.getMessage(), null);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationErrors(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();

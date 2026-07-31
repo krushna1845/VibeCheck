@@ -12,6 +12,9 @@ import java.util.UUID;
  */
 @Builder
 public record BookingCreatedEvent(
+        String eventId,
+        String eventType,
+        Integer eventVersion,
         UUID bookingId,
         String bookingReference,
         UUID userId,
@@ -20,4 +23,11 @@ public record BookingCreatedEvent(
         BigDecimal totalAmount,
         Instant expiresAt,
         Instant timestamp
-) {}
+) {
+    public static class BookingCreatedEventBuilder {
+        private String eventId = UUID.randomUUID().toString();
+        private String eventType = "BOOKING_CREATED";
+        private Integer eventVersion = 1;
+        private Instant timestamp = Instant.now();
+    }
+}

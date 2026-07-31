@@ -1,0 +1,43 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: false
+  kafka:
+    bootstrap-servers: localhost:9092
+  redis:
+    host: localhost
+    port: 6379
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+
+payment:
+  gateway:
+    base-url: https://mock-gateway.test
+    webhook-secret: test-secret
+    timeout-ms: 1000
+    retry:
+      max-attempts: 2
+      initial-delay-ms: 100
+      multiplier: 1.5
+      max-delay-ms: 500
+  idempotency:
+    ttl-seconds: 3600
+    callback-ttl-seconds: 86400
+
+logging:
+  level:
+    com.krushna.moviebooking.payment: DEBUG

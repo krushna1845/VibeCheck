@@ -1,6 +1,7 @@
 package com.krushna.moviebooking.booking.client;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,7 +16,9 @@ public interface ShowClient {
             UUID movieId,
             UUID theatreId,
             UUID screenId,
-            String status
+            String status,
+            Instant startTime,
+            Instant endTime
     ) {}
 
     record ShowSeatDto(

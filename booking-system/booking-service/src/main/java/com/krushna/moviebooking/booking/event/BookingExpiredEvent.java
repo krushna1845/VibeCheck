@@ -11,10 +11,20 @@ import java.util.UUID;
  */
 @Builder
 public record BookingExpiredEvent(
+        String eventId,
+        String eventType,
+        Integer eventVersion,
         UUID bookingId,
         String bookingReference,
         UUID userId,
         UUID showId,
         List<UUID> showSeatIds,
         Instant timestamp
-) {}
+) {
+    public static class BookingExpiredEventBuilder {
+        private String eventId = UUID.randomUUID().toString();
+        private String eventType = "BOOKING_EXPIRED";
+        private Integer eventVersion = 1;
+        private Instant timestamp = Instant.now();
+    }
+}
