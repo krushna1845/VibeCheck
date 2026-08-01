@@ -28,7 +28,7 @@ CREATE TABLE bookings (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uk_bookings_reference UNIQUE (booking_reference),
     CONSTRAINT chk_bookings_amount CHECK (total_amount >= 0),
-    CONSTRAINT chk_bookings_status CHECK (status IN ('PENDING', 'CONFIRMED', 'CANCELLED', 'EXPIRED'))
+    CONSTRAINT chk_bookings_status CHECK (status IN ('CREATED', 'SEATS_LOCKED', 'PENDING', 'CONFIRMED', 'CANCELLED', 'EXPIRED', 'COMPLETED'))
 );
 
 CREATE TRIGGER trg_bookings_updated_at

@@ -1,22 +1,48 @@
 server:
-  port: 8080
+  port: 8079
+
 spring:
   application:
     name: gateway-service
-  datasource:
-    url: jdbc:postgresql://localhost:5432/gateway_service
-    username: postgres
-    password: postgres
-  flyway:
-    enabled: true
-    locations: classpath:db/migration
-  kafka:
-    bootstrap-servers: localhost:9092
   redis:
     host: localhost
     port: 6379
+  kafka:
+    bootstrap-servers: localhost:9092
+
+# JWT secret must match auth-service secret
+jwt:
+  secret: 9a4f2c8d7e6b5a4c3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a
+  access-token-expiration-ms: 86400000
+
+# Downstream service URLs
+services:
+  auth-url: http://localhost:8080
+  movie-url: http://localhost:8081
+  theatre-url: http://localhost:8082
+  show-url: http://localhost:8083
+  booking-url: http://localhost:8084
+  payment-url: http://localhost:8085
+
+# Rate limiting
+rate-limit:
+  max-requests-per-minute: 60
+
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    com.krushna.moviebooking.gateway: INFO

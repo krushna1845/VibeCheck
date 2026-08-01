@@ -1,3 +1,12 @@
 package com.krushna.moviebooking.auth.dto.response;
 
-public record AuthResponse(String id, String status) {}
+import lombok.Builder;
+
+@Builder
+public record AuthResponse(
+        String accessToken,
+        String refreshToken,
+        String tokenType,
+        long expiresInMs,
+        UserResponse user
+) {}

@@ -394,6 +394,16 @@ public class BookingServiceImpl implements BookingService {
         return bookingMapper.toSummaryList(bookings);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    @Transactional(readOnly = true)
+    public Page<BookingSummary> adminSearch(BookingSearchCriteria criteria, Pageable pageable) {
+        log.debug("Admin search for bookings with criteria: {}, pageable: {}", criteria, pageable);
+        var spec = BookingSpecification.fromCriteria(criteria);
+        return bookingRepository.findAll(spec, pageable)
+                .map(bookingMapper::toSummary);
+    }
+
     // -------------------------------------------------------------------------
     // Private Helpers & Validations
     // -------------------------------------------------------------------------
