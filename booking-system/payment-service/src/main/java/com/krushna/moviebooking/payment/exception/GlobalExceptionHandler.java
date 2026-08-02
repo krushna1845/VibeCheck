@@ -1,19 +1,14 @@
 package com.krushna.moviebooking.payment.exception;
 
-import lombok.Builder;
+import com.krushna.moviebooking.common.dto.ErrorResponse;
+import com.krushna.moviebooking.common.exception.BaseGlobalExceptionHandler;
+import com.krushna.moviebooking.payment.gateway.PaymentGatewayException;
+import com.krushna.moviebooking.payment.gateway.PaymentTimeoutException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
-import com.krushna.moviebooking.payment.gateway.PaymentGatewayException;
-import com.krushna.moviebooking.payment.gateway.PaymentTimeoutException;
-
-import java.time.Instant;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Global REST exception handler for the Payment Service.
@@ -23,16 +18,7 @@ import java.util.Map;
  */
 @Slf4j
 @RestControllerAdvice
-public class GlobalExceptionHandler {
-
-    @Builder
-    public record ErrorResponse(
-            int status,
-            String error,
-            String message,
-            Instant timestamp,
-            Map<String, String> validationErrors
-    ) {}
+public class GlobalExceptionHandler extends BaseGlobalExceptionHandler {
 
     @ExceptionHandler(PaymentNotFoundException.class)
     public ResponseEntity<ErrorResponse> handlePaymentNotFound(PaymentNotFoundException ex) {
@@ -70,29 +56,9 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.GATEWAY_TIMEOUT, "Payment Gateway Timeout", ex.getMessage(), null);
     }
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
-        Map<String, String> errors = new HashMap<>();
-        ex.getBindingResult().getFieldErrors().forEach(e -> errors.put(e.getField(), e.getDefaultMessage()));
-        log.warn("[Payment] Validation failed: {}", errors);
-        return build(HttpStatus.BAD_REQUEST, "Validation Failed", "One or more fields failed validation", errors);
-    }
-
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex) {
         log.error("[Payment] Unhandled error", ex);
         return build(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", ex.getMessage(), null);
-    }
-
-    private ResponseEntity<ErrorResponse> build(HttpStatus status, String error,
-                                                 String message, Map<String, String> validationErrors) {
-        ErrorResponse body = ErrorResponse.builder()
-                .status(status.value())
-                .error(error)
-                .message(message)
-                .timestamp(Instant.now())
-                .validationErrors(validationErrors)
-                .build();
-        return ResponseEntity.status(status).body(body);
     }
 }

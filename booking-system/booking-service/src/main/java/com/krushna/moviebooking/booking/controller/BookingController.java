@@ -1,8 +1,8 @@
 package com.krushna.moviebooking.booking.controller;
 
 import com.krushna.moviebooking.booking.dto.*;
-import com.krushna.moviebooking.booking.model.ApiResponse;
-import com.krushna.moviebooking.booking.model.PagedResponse;
+import com.krushna.moviebooking.common.dto.ApiResponse;
+import com.krushna.moviebooking.common.dto.PagedResponse;
 import com.krushna.moviebooking.booking.service.BookingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
