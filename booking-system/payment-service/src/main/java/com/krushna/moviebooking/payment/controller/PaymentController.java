@@ -85,4 +85,20 @@ public class PaymentController {
         log.debug("[PaymentController] GET /api/v1/payments/user/{}", userId);
         return ResponseEntity.ok(paymentService.getPaymentsByUserId(userId, pageable));
     }
+
+    /**
+     * Processes a full or partial refund for a payment.
+     *
+     * @param paymentId Internal payment UUID
+     * @param request   Validated refund payload
+     * @return 200 OK with refund confirmation
+     */
+    @PostMapping("/{paymentId}/refund")
+    public ResponseEntity<com.krushna.moviebooking.payment.dto.RefundResponse> processRefund(
+            @PathVariable UUID paymentId,
+            @Valid @RequestBody com.krushna.moviebooking.payment.dto.RefundRequest request) {
+        log.info("[PaymentController] POST /api/v1/payments/{}/refund | amount={}", paymentId, request.amount());
+        com.krushna.moviebooking.payment.dto.RefundResponse response = paymentService.processRefund(request);
+        return ResponseEntity.ok(response);
+    }
 }

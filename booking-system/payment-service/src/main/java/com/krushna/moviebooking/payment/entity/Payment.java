@@ -75,6 +75,25 @@ public class Payment {
     @Column(name = "failure_reason", columnDefinition = "TEXT")
     private String failureReason;
 
+    @Size(max = 255)
+    @Column(name = "gateway_payment_id")
+    private String gatewayPaymentId;
+
+    @Size(max = 255)
+    @Column(name = "gateway_order_id")
+    private String gatewayOrderId;
+
+    @Size(max = 255)
+    @Column(name = "refund_reference")
+    private String refundReference;
+
+    @Column(name = "refund_amount", precision = 10, scale = 2)
+    private BigDecimal refundAmount;
+
+    @Size(max = 50)
+    @Column(name = "refund_status", length = 50)
+    private String refundStatus;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

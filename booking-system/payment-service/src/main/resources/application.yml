@@ -47,9 +47,19 @@ management:
 # Payment gateway configuration
 payment:
   gateway:
+    provider: ${PAYMENT_GATEWAY_PROVIDER:MOCK}
     base-url: https://mock-payment-gateway.internal
-    webhook-secret: change-me-in-production
+    webhook-secret: ${PAYMENT_WEBHOOK_SECRET:change-me-in-production}
     timeout-ms: 5000
+    razorpay:
+      key-id: ${RAZORPAY_KEY_ID:rzp_test_placeholder_key}
+      key-secret: ${RAZORPAY_KEY_SECRET:rzp_test_placeholder_secret}
+      webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:rzp_test_webhook_secret}
+      base-url: https://api.razorpay.com/v1
+    stripe:
+      api-key: ${STRIPE_API_KEY:sk_test_placeholder_key}
+      webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_test_webhook_secret}
+      base-url: https://api.stripe.com/v1
     retry:
       max-attempts: 3
       initial-delay-ms: 500

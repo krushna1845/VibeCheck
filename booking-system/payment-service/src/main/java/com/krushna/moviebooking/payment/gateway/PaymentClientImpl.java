@@ -33,7 +33,7 @@ import java.util.UUID;
  * <p>Replace this class with a real HTTP/REST adapter in production.
  */
 @Slf4j
-@Component
+@Component("MOCK")
 @RequiredArgsConstructor
 @EnableConfigurationProperties(PaymentGatewayProperties.class)
 public class PaymentClientImpl implements PaymentClient {
@@ -41,6 +41,11 @@ public class PaymentClientImpl implements PaymentClient {
     private static final String GATEWAY_NAME = "MOCK_GATEWAY";
     private final PaymentGatewayProperties gatewayProperties;
     private final Random random = new Random();
+
+    @Override
+    public String getGatewayName() {
+        return "MOCK";
+    }
 
     /**
      * Initiates a payment against the mock gateway.

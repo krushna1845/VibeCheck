@@ -25,4 +25,31 @@ public interface PaymentClient {
      * @throws PaymentTimeoutException  when the gateway call exceeds the configured timeout
      */
     PaymentResponse initiatePayment(PaymentRequest request);
+
+    /**
+     * Returns the unique identifier of the payment gateway (e.g. MOCK, RAZORPAY, STRIPE).
+     */
+    default String getGatewayName() {
+        return "MOCK";
+    }
+
+    /**
+     * Processes a refund with the external payment gateway.
+     *
+     * @param request Validated refund payload
+     * @return {@link com.krushna.moviebooking.payment.dto.RefundResponse} with gateway refund details
+     * @throws PaymentGatewayException on gateway errors
+     */
+    default com.krushna.moviebooking.payment.dto.RefundResponse processRefund(com.krushna.moviebooking.payment.dto.RefundRequest request) {
+        return com.krushna.moviebooking.payment.dto.RefundResponse.builder()
+                .refundId(java.util.UUID.randomUUID())
+                .paymentId(request.paymentId())
+                .refundReference(getGatewayName() + "-RFD-" + java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                .amount(request.amount())
+                .currency("INR")
+                .status("REFUNDED")
+                .reason(request.reason())
+                .createdAt(java.time.Instant.now())
+                .build();
+    }
 }

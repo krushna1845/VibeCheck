@@ -1,16 +1,16 @@
 package com.krushna.moviebooking.payment.service.impl;
 
-import com.krushna.moviebooking.payment.dto.PaymentCallback;
-import com.krushna.moviebooking.payment.dto.PaymentRequest;
-import com.krushna.moviebooking.payment.dto.PaymentResponse;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.krushna.moviebooking.payment.dto.*;
 import com.krushna.moviebooking.payment.entity.Payment;
-import com.krushna.moviebooking.payment.event.PaymentEventPublisher;
-import com.krushna.moviebooking.payment.event.PaymentFailedEvent;
-import com.krushna.moviebooking.payment.event.PaymentInitiatedEvent;
-import com.krushna.moviebooking.payment.event.PaymentSuccessEvent;
+import com.krushna.moviebooking.payment.event.*;
 import com.krushna.moviebooking.payment.exception.PaymentNotFoundException;
 import com.krushna.moviebooking.payment.gateway.PaymentClient;
 import com.krushna.moviebooking.payment.gateway.PaymentGatewayException;
+import com.krushna.moviebooking.payment.gateway.PaymentGatewayFactory;
+import com.krushna.moviebooking.payment.gateway.RazorpayPaymentClient;
+import com.krushna.moviebooking.payment.gateway.StripePaymentClient;
 import com.krushna.moviebooking.payment.repository.PaymentRepository;
 import com.krushna.moviebooking.payment.service.PaymentIdempotencyService;
 import com.krushna.moviebooking.payment.service.PaymentService;
@@ -21,81 +21,56 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Primary implementation of {@link PaymentService}.
- *
- * <p><b>Idempotency strategy</b>:
- * <ol>
- *   <li>Check Redis for a cached {@link PaymentResponse} matching the {@code idempotencyKey}.</li>
- *   <li>If found → return cached result immediately (no gateway call, no DB write).</li>
- *   <li>If not found → persist INITIATED record → call gateway → update record → cache result.</li>
- * </ol>
- *
- * <p><b>Callback deduplication</b>:
- * <ol>
- *   <li>Check Redis for a processed marker on the {@code transactionReference}.</li>
- *   <li>If found → return existing DB record idempotently.</li>
- *   <li>If not found → update Payment status → mark Redis → publish event.</li>
- * </ol>
- *
- * <p><b>Transactional boundaries</b>:
- * <ul>
- *   <li>All write methods are {@code @Transactional(REQUIRED)} — DB is committed before
- *       Kafka events are published to prevent event-before-commit races.</li>
- *   <li>Read methods are {@code @Transactional(readOnly = true)}.</li>
- * </ul>
- *
- * <p><b>Retry</b>: Gateway calls are retried automatically via Spring Retry annotations on
- * {@link PaymentClient} for {@link com.krushna.moviebooking.payment.gateway.PaymentTimeoutException}.
+ * Enhanced production implementation of {@link PaymentService} supporting multi-gateway routing (Razorpay, Stripe, Mock),
+ * HMAC webhook signature validation, refund processing, and post-commit transactional Kafka event publishing.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class PaymentServiceImpl implements PaymentService {
 
-    private final PaymentRepository         paymentRepository;
-    private final PaymentClient             paymentClient;
+    private final PaymentRepository paymentRepository;
+    private final PaymentGatewayFactory paymentGatewayFactory;
     private final PaymentIdempotencyService idempotencyService;
-    private final PaymentValidator          paymentValidator;
-    private final PaymentEventPublisher     eventPublisher;
+    private final PaymentValidator paymentValidator;
+    private final PaymentEventPublisher eventPublisher;
+    private final ObjectMapper objectMapper;
 
     // -------------------------------------------------------------------------
     // INITIATE
     // -------------------------------------------------------------------------
 
-    /**
-     * {@inheritDoc}
-     *
-     * <p>Database write is transactional. Gateway call is outside the DB transaction
-     * to avoid holding a connection during a potentially slow HTTP call.
-     */
     @Override
     @Transactional
     public PaymentResponse initiatePayment(PaymentRequest request) {
         log.info("[PaymentService] Initiating payment | idempotencyKey={} bookingRef={} amount={}",
                 request.idempotencyKey(), request.bookingReference(), request.amount());
 
-        // Step 1 — Validate business rules
         paymentValidator.validatePaymentRequest(request);
 
-        // Step 2 — Idempotency check: return cached response if already processed
         Optional<PaymentResponse> cached = idempotencyService.findCachedResponse(request.idempotencyKey());
         if (cached.isPresent()) {
             log.info("[PaymentService] Idempotent hit for key={} — returning cached response", request.idempotencyKey());
             return cached.get();
         }
 
-        // Step 3 — Persist INITIATED payment record
+        PaymentClient client = paymentGatewayFactory.getPaymentClient();
+        String gatewayName = client.getGatewayName();
+
         Payment payment = Payment.builder()
                 .bookingId(request.bookingId())
                 .userId(request.userId())
                 .idempotencyKey(request.idempotencyKey())
-                .paymentGateway("MOCK_GATEWAY")
+                .paymentGateway(gatewayName)
                 .amount(request.amount())
                 .currency(request.currency() != null ? request.currency() : "INR")
                 .paymentMethod(request.paymentMethod())
@@ -104,31 +79,28 @@ public class PaymentServiceImpl implements PaymentService {
 
         payment = paymentRepository.save(payment);
         final UUID paymentId = payment.getId();
-        log.info("[PaymentService] Payment record persisted | paymentId={} idempotencyKey={}", paymentId, request.idempotencyKey());
+        log.info("[PaymentService] Payment record persisted | paymentId={} gateway={}", paymentId, gatewayName);
 
-        // Step 4 — Call external gateway (Spring Retry handles timeouts transparently)
         PaymentResponse gatewayResponse;
         try {
-            gatewayResponse = paymentClient.initiatePayment(request);
+            gatewayResponse = client.initiatePayment(request);
         } catch (PaymentGatewayException ex) {
             log.error("[PaymentService] Gateway failure for paymentId={}: {}", paymentId, ex.getMessage());
             payment.setStatus("FAILED");
             payment.setFailureReason(ex.getMessage());
-            paymentRepository.save(payment);
-            publishFailedEvent(payment, ex.getMessage());
+            Payment failedPayment = paymentRepository.save(payment);
+            executeAfterCommit(() -> publishFailedEvent(failedPayment, ex.getMessage()));
             throw ex;
         }
 
-        // Step 5 — Update record with gateway-assigned transaction reference
         payment.setTransactionReference(gatewayResponse.transactionReference());
         payment = paymentRepository.save(payment);
 
-        // Step 6 — Build response and cache it
         PaymentResponse response = buildResponse(payment, gatewayResponse.redirectUrl());
         idempotencyService.cacheResponse(request.idempotencyKey(), response);
 
-        // Step 7 — Publish domain event
-        publishInitiatedEvent(payment, request);
+        final Payment finalPayment = payment;
+        executeAfterCommit(() -> publishInitiatedEvent(finalPayment, request));
 
         log.info("[PaymentService] Payment initiated successfully | paymentId={} txnRef={}",
                 paymentId, payment.getTransactionReference());
@@ -136,25 +108,17 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     // -------------------------------------------------------------------------
-    // CALLBACK
+    // CALLBACK & WEBHOOKS
     // -------------------------------------------------------------------------
 
-    /**
-     * {@inheritDoc}
-     *
-     * <p>Duplicate callbacks for the same {@code transactionReference} are detected via Redis
-     * and handled idempotently without re-publishing events.
-     */
     @Override
     @Transactional
     public PaymentResponse processCallback(PaymentCallback callback) {
         log.info("[PaymentService] Processing callback | txnRef={} status={} gateway={}",
                 callback.transactionReference(), callback.gatewayStatus(), callback.gatewayName());
 
-        // Step 1 — Validate signature and payload
         paymentValidator.validateCallback(callback);
 
-        // Step 2 — Duplicate callback guard
         if (idempotencyService.isCallbackAlreadyProcessed(callback.transactionReference())) {
             log.info("[PaymentService] Duplicate callback for txnRef={} — returning existing record",
                     callback.transactionReference());
@@ -165,13 +129,11 @@ public class PaymentServiceImpl implements PaymentService {
             return buildResponse(existing, null);
         }
 
-        // Step 3 — Locate payment record
         Payment payment = paymentRepository
                 .findByTransactionReference(callback.transactionReference())
                 .orElseThrow(() -> new PaymentNotFoundException(
                         "Payment not found for txnRef: " + callback.transactionReference()));
 
-        // Step 4 — Reconcile status
         String mappedStatus = mapGatewayStatus(callback.gatewayStatus());
         payment.setStatus(mappedStatus);
         if (callback.failureReason() != null) {
@@ -180,50 +142,158 @@ public class PaymentServiceImpl implements PaymentService {
         payment = paymentRepository.save(payment);
         log.info("[PaymentService] Payment status updated | paymentId={} status={}", payment.getId(), mappedStatus);
 
-        // Step 5 — Mark callback as processed (deduplication)
         idempotencyService.markCallbackProcessed(callback.transactionReference());
 
-        // Step 6 — Publish domain event
-        publishCallbackEvent(payment, mappedStatus);
+        final Payment savedPayment = payment;
+        executeAfterCommit(() -> publishCallbackEvent(savedPayment, mappedStatus));
 
         return buildResponse(payment, null);
+    }
+
+    @Override
+    @Transactional
+    public PaymentResponse processWebhook(String provider, String rawPayload, Map<String, String> headers) {
+        log.info("[PaymentService] Processing webhook | provider={}", provider);
+
+        PaymentClient client = paymentGatewayFactory.getPaymentClient(provider);
+
+        String txnRef = null;
+        String status = "SUCCESS";
+        String failureReason = null;
+
+        if ("RAZORPAY".equalsIgnoreCase(provider) && client instanceof RazorpayPaymentClient razorpayClient) {
+            try {
+                JsonNode root = objectMapper.readTree(rawPayload);
+                JsonNode paymentEntity = root.path("payload").path("payment").path("entity");
+                String orderId = paymentEntity.path("order_id").asText();
+                String paymentId = paymentEntity.path("id").asText();
+                txnRef = orderId.isEmpty() ? paymentId : orderId;
+
+                String signature = headers.get("x-razorpay-signature");
+                if (signature == null) {
+                    signature = headers.get("X-Razorpay-Signature");
+                }
+
+                if (!razorpayClient.verifyWebhookSignature(orderId, paymentId, signature)) {
+                    log.error("[PaymentService] Invalid Razorpay webhook signature");
+                    throw new PaymentGatewayException("Invalid Razorpay webhook signature");
+                }
+
+                String eventType = root.path("event").asText();
+                if ("payment.failed".equalsIgnoreCase(eventType)) {
+                    status = "FAILED";
+                    failureReason = paymentEntity.path("error_description").asText("Razorpay payment failed");
+                }
+            } catch (Exception e) {
+                if (e instanceof PaymentGatewayException pge) throw pge;
+                throw new PaymentGatewayException("Failed to parse Razorpay webhook payload", e);
+            }
+        } else if ("STRIPE".equalsIgnoreCase(provider) && client instanceof StripePaymentClient stripeClient) {
+            try {
+                String signatureHeader = headers.get("stripe-signature");
+                if (signatureHeader == null) {
+                    signatureHeader = headers.get("Stripe-Signature");
+                }
+
+                if (!stripeClient.verifyWebhookSignature(rawPayload, signatureHeader)) {
+                    log.error("[PaymentService] Invalid Stripe webhook signature");
+                    throw new PaymentGatewayException("Invalid Stripe webhook signature");
+                }
+
+                JsonNode root = objectMapper.readTree(rawPayload);
+                JsonNode dataObj = root.path("data").path("object");
+                txnRef = dataObj.path("id").asText();
+                String eventType = root.path("type").asText();
+
+                if (eventType.contains("failed")) {
+                    status = "FAILED";
+                    failureReason = dataObj.path("last_payment_error").path("message").asText("Stripe payment failed");
+                }
+            } catch (Exception e) {
+                if (e instanceof PaymentGatewayException pge) throw pge;
+                throw new PaymentGatewayException("Failed to parse Stripe webhook payload", e);
+            }
+        } else {
+            // Default mock callback mapping
+            PaymentCallback callback = PaymentCallback.builder()
+                    .transactionReference(headers.getOrDefault("txn-ref", "TXN-" + UUID.randomUUID()))
+                    .gatewayStatus(headers.getOrDefault("status", "SUCCESS"))
+                    .gatewayName(provider)
+                    .build();
+            return processCallback(callback);
+        }
+
+        PaymentCallback callback = PaymentCallback.builder()
+                .transactionReference(txnRef)
+                .gatewayStatus(status)
+                .gatewayName(provider)
+                .failureReason(failureReason)
+                .build();
+
+        return processCallback(callback);
+    }
+
+    // -------------------------------------------------------------------------
+    // REFUND
+    // -------------------------------------------------------------------------
+
+    @Override
+    @Transactional
+    public RefundResponse processRefund(RefundRequest request) {
+        log.info("[PaymentService] Processing refund | paymentId={} amount={}", request.paymentId(), request.amount());
+
+        Payment payment = paymentRepository.findById(request.paymentId())
+                .orElseThrow(() -> new PaymentNotFoundException("Payment not found for id: " + request.paymentId()));
+
+        if (!"SUCCESS".equalsIgnoreCase(payment.getStatus())) {
+            throw new IllegalStateException("Cannot refund payment with status: " + payment.getStatus());
+        }
+
+        PaymentClient client = paymentGatewayFactory.getPaymentClient(payment.getPaymentGateway());
+        RefundResponse refundResponse = client.processRefund(request);
+
+        payment.setRefundReference(refundResponse.refundReference());
+        payment.setRefundAmount(request.amount());
+        payment.setRefundStatus("REFUNDED");
+        payment = paymentRepository.save(payment);
+
+        final Payment savedPayment = payment;
+        final RefundResponse finalResponse = refundResponse;
+        executeAfterCommit(() -> publishRefundEvent(savedPayment, finalResponse));
+
+        log.info("[PaymentService] Refund processed successfully | refundRef={}", refundResponse.refundReference());
+        return refundResponse;
     }
 
     // -------------------------------------------------------------------------
     // READ
     // -------------------------------------------------------------------------
 
-    /** {@inheritDoc} */
     @Override
     @Transactional(readOnly = true)
     public PaymentResponse getPaymentById(UUID paymentId) {
-        log.debug("[PaymentService] Fetching payment by id={}", paymentId);
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new PaymentNotFoundException("Payment not found with id: " + paymentId));
         return buildResponse(payment, null);
     }
 
-    /** {@inheritDoc} */
     @Override
     @Transactional(readOnly = true)
     public PaymentResponse getPaymentByBookingId(UUID bookingId) {
-        log.debug("[PaymentService] Fetching payment for bookingId={}", bookingId);
         Payment payment = paymentRepository.findByBookingId(bookingId)
                 .orElseThrow(() -> new PaymentNotFoundException("Payment not found for bookingId: " + bookingId));
         return buildResponse(payment, null);
     }
 
-    /** {@inheritDoc} */
     @Override
     @Transactional(readOnly = true)
     public Page<PaymentResponse> getPaymentsByUserId(UUID userId, Pageable pageable) {
-        log.debug("[PaymentService] Fetching payments for userId={}", userId);
         return paymentRepository.findByUserId(userId, pageable)
                 .map(p -> buildResponse(p, null));
     }
 
     // -------------------------------------------------------------------------
-    // Private helpers
+    // Helpers & Event Publishing
     // -------------------------------------------------------------------------
 
     private PaymentResponse buildResponse(Payment payment, String redirectUrl) {
@@ -245,9 +315,22 @@ public class PaymentServiceImpl implements PaymentService {
     private String mapGatewayStatus(String gatewayStatus) {
         return switch (gatewayStatus.toUpperCase()) {
             case "SUCCESS" -> "SUCCESS";
-            case "FAILED"  -> "FAILED";
-            default        -> "INITIATED";
+            case "FAILED" -> "FAILED";
+            default -> "INITIATED";
         };
+    }
+
+    private void executeAfterCommit(Runnable task) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    task.run();
+                }
+            });
+        } else {
+            task.run();
+        }
     }
 
     private void publishInitiatedEvent(Payment payment, PaymentRequest request) {
@@ -294,5 +377,21 @@ public class PaymentServiceImpl implements PaymentService {
                 .timestamp(Instant.now())
                 .build();
         eventPublisher.publishPaymentFailed(event);
+    }
+
+    private void publishRefundEvent(Payment payment, RefundResponse response) {
+        PaymentRefundedEvent event = PaymentRefundedEvent.builder()
+                .refundId(response.refundId())
+                .paymentId(payment.getId())
+                .bookingId(payment.getBookingId())
+                .userId(payment.getUserId())
+                .refundReference(response.refundReference())
+                .transactionReference(payment.getTransactionReference())
+                .amount(response.amount())
+                .currency(payment.getCurrency())
+                .reason(response.reason())
+                .timestamp(Instant.now())
+                .build();
+        eventPublisher.publishPaymentRefunded(event);
     }
 }

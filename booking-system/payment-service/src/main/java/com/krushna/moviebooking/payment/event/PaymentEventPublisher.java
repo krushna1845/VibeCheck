@@ -77,4 +77,22 @@ public class PaymentEventPublisher {
                     }
                 });
     }
+
+    /**
+     * Publishes a {@link PaymentRefundedEvent} to {@value KafkaConfig#PAYMENT_REFUNDED_TOPIC}.
+     *
+     * @param event Refunded event
+     */
+    public void publishPaymentRefunded(PaymentRefundedEvent event) {
+        String topic = KafkaConfig.PAYMENT_REFUNDED_TOPIC;
+        log.info("[PaymentEvent] Publishing REFUNDED | topic={} paymentId={} refundRef={}",
+                topic, event.paymentId(), event.refundReference());
+        kafkaTemplate.send(topic, event.paymentId().toString(), event)
+                .whenComplete((result, ex) -> {
+                    if (ex != null) {
+                        log.error("[PaymentEvent] Failed to publish REFUNDED for paymentId={}: {}",
+                                event.paymentId(), ex.getMessage());
+                    }
+                });
+    }
 }

@@ -59,6 +59,25 @@ public interface PaymentService {
     PaymentResponse getPaymentByBookingId(UUID bookingId);
 
     /**
+     * Processes a full or partial refund for an existing payment.
+     *
+     * @param request Validated refund request payload
+     * @return {@link com.krushna.moviebooking.payment.dto.RefundResponse} with refund transaction details
+     */
+    com.krushna.moviebooking.payment.dto.RefundResponse processRefund(com.krushna.moviebooking.payment.dto.RefundRequest request);
+
+    /**
+     * Processes an inbound gateway webhook (e.g. Razorpay or Stripe), verifying HMAC signature
+     * and idempotently reconciling status with the database.
+     *
+     * @param provider   Gateway provider name ("RAZORPAY", "STRIPE", "MOCK")
+     * @param rawPayload Raw JSON/text payload body
+     * @param headers    Request headers map
+     * @return Updated {@link PaymentResponse}
+     */
+    PaymentResponse processWebhook(String provider, String rawPayload, java.util.Map<String, String> headers);
+
+    /**
      * Returns a pageable list of payments for a user.
      *
      * @param userId   Customer UUID

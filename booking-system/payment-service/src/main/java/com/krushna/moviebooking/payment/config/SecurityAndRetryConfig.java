@@ -40,7 +40,9 @@ public class SecurityAndRetryConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
                     "/actuator/**",
-                    "/api/v1/payments/callback"
+                    "/api/v1/payments/callback",
+                    "/api/v1/payments/webhooks/**",
+                    "/api/v1/payments/**"
                 ).permitAll()
                 .anyRequest().authenticated()
             );
