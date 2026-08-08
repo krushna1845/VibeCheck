@@ -5,10 +5,11 @@ import com.krushna.moviebooking.notification.channel.EmailNotificationChannel;
 import com.krushna.moviebooking.notification.channel.SmsNotificationChannel;
 import com.krushna.moviebooking.notification.client.UserProfile;
 import com.krushna.moviebooking.notification.client.UserServiceClient;
+import com.krushna.moviebooking.notification.dto.TicketDto;
+import com.krushna.moviebooking.notification.dto.TicketRequest;
 import com.krushna.moviebooking.notification.entity.Notification;
 import com.krushna.moviebooking.notification.entity.NotificationChannelType;
 import com.krushna.moviebooking.notification.entity.NotificationStatus;
-import com.krushna.moviebooking.notification.pdf.TicketPdfGenerator;
 import com.krushna.moviebooking.notification.repository.NotificationRepository;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -17,8 +18,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class NotificationServiceImpl implements NotificationService {
@@ -30,7 +33,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final EmailNotificationChannel emailNotificationChannel;
     private final SmsNotificationChannel smsNotificationChannel;
     private final UserServiceClient userServiceClient;
-    private final TicketPdfGenerator ticketPdfGenerator;
+    private final TicketService ticketService;
     private final ObjectMapper objectMapper;
 
     private final Counter sentCounter;
@@ -42,7 +45,7 @@ public class NotificationServiceImpl implements NotificationService {
             EmailNotificationChannel emailNotificationChannel,
             SmsNotificationChannel smsNotificationChannel,
             UserServiceClient userServiceClient,
-            TicketPdfGenerator ticketPdfGenerator,
+            TicketService ticketService,
             ObjectMapper objectMapper,
             MeterRegistry meterRegistry) {
         this.notificationRepository = notificationRepository;
@@ -50,7 +53,7 @@ public class NotificationServiceImpl implements NotificationService {
         this.emailNotificationChannel = emailNotificationChannel;
         this.smsNotificationChannel = smsNotificationChannel;
         this.userServiceClient = userServiceClient;
-        this.ticketPdfGenerator = ticketPdfGenerator;
+        this.ticketService = ticketService;
         this.objectMapper = objectMapper;
 
         this.sentCounter = meterRegistry.counter("notifications.sent");
@@ -114,13 +117,36 @@ public class NotificationServiceImpl implements NotificationService {
         boolean delivered = false;
         if (request.channelType() == NotificationChannelType.EMAIL) {
             if ("BOOKING_CONFIRMED".equalsIgnoreCase(request.eventType())) {
-                // Generate PDF ticket & QR Code
+                // Generate PDF ticket & metadata using TicketService
                 try {
-                    byte[] pdfBytes = ticketPdfGenerator.generate(metadataMap);
-                    String filename = "Ticket_" + metadataMap.getOrDefault("bookingReference", "VibeCheck") + ".pdf";
+                    UUID bookingId = null;
+                    if (metadataMap.get("bookingId") != null) {
+                        try {
+                            bookingId = UUID.fromString(metadataMap.get("bookingId").toString());
+                        } catch (Exception ignored) {}
+                    }
+                    if (bookingId == null) {
+                        bookingId = UUID.randomUUID();
+                    }
+
+                    TicketRequest ticketReq = TicketRequest.builder()
+                            .bookingId(bookingId)
+                            .bookingReference((String) metadataMap.getOrDefault("bookingReference", "VIBE-" + UUID.randomUUID().toString().substring(0, 6)))
+                            .userId(request.userId())
+                            .movieTitle((String) metadataMap.getOrDefault("movieTitle", metadataMap.getOrDefault("showTitle", "Movie Title")))
+                            .theatreName((String) metadataMap.getOrDefault("theatreName", metadataMap.getOrDefault("venue", "Cinema Hall")))
+                            .screenName((String) metadataMap.getOrDefault("screenName", "Screen 1"))
+                            .seatNumbers((String) metadataMap.getOrDefault("seatNumbers", "A1, A2"))
+                            .amount(metadataMap.get("amount") != null ? new BigDecimal(metadataMap.get("amount").toString()) : BigDecimal.ZERO)
+                            .recipientEmail(recipient)
+                            .build();
+
+                    TicketDto ticketDto = ticketService.generateTicket(ticketReq);
+                    byte[] pdfBytes = ticketDto.pdfBytes();
+                    String filename = "Ticket_" + ticketDto.bookingReference() + ".pdf";
                     delivered = emailNotificationChannel.sendWithAttachment(notification, pdfBytes, filename);
                 } catch (Exception e) {
-                    log.error("Failed to attach ticket PDF, falling back to standard email: {}", e.getMessage());
+                    log.error("Failed to generate ticket via TicketService, falling back to standard email: {}", e.getMessage(), e);
                     delivered = emailNotificationChannel.send(notification);
                 }
             } else {

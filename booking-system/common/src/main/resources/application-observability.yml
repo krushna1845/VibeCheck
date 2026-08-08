@@ -1,0 +1,72 @@
+# Observability Configuration
+# This file contains common observability settings for all services
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,loggers,threaddump,heapdump
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+      probes:
+        enabled: true
+    metrics:
+      enabled: true
+    prometheus:
+      enabled: true
+  health:
+    defaults:
+      enabled: true
+    redis:
+      enabled: true
+    db:
+      enabled: true
+    kafka:
+      enabled: true
+  metrics:
+    enable:
+      jvm: true
+      process: true
+      system: true
+      hikaricp: true
+      tomcat: true
+      spring: true
+      logback: true
+    export:
+      prometheus:
+        enabled: true
+        step: 1m
+        descriptions: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        spring.data.repository.invocations: true
+      percentiles:
+        http.server.requests: 0.5, 0.75, 0.95, 0.99
+        spring.data.repository.invocations: 0.5, 0.75, 0.95, 0.99
+    tags:
+      application: ${spring.application.name}
+      environment: ${spring.profiles.active:default}
+  tracing:
+    sampling:
+      probability: 0.1
+    enabled: true
+    zipkin:
+      endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
+      connect-timeout: 1s
+      read-timeout: 10s
+
+# Logging configuration
+logging:
+  level:
+    root: INFO
+    com.krushna.moviebooking: INFO
+    org.springframework.web: INFO
+    org.springframework.security: INFO
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql.BasicBinder: WARN
+  pattern:
+    level: "%5p [${spring.application.name:},%X{correlationId:-}]"

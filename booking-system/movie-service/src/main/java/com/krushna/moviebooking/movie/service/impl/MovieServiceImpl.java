@@ -53,6 +53,7 @@ public class MovieServiceImpl implements MovieService {
     private final GenreRepository genreRepository;
     private final LanguageRepository languageRepository;
     private final MovieMapper movieMapper;
+    private final com.krushna.moviebooking.movie.event.MovieEventPublisher movieEventPublisher;
 
     // -------------------------------------------------------------------------
     // CREATE
@@ -152,6 +153,7 @@ public class MovieServiceImpl implements MovieService {
 
         // Dirty checking — no explicit save() needed; Hibernate detects changes.
         log.info("Movie updated successfully: id={}", id);
+        movieEventPublisher.publishMovieUpdatedEvent(movie.getId(), movie.getTitle());
         return movieMapper.toResponse(movie);
     }
 
@@ -174,6 +176,7 @@ public class MovieServiceImpl implements MovieService {
         movie.setDeletedAt(Instant.now());
 
         log.info("Movie soft-deleted successfully: id={}", id);
+        movieEventPublisher.publishMovieUpdatedEvent(movie.getId(), movie.getTitle());
     }
 
     // -------------------------------------------------------------------------
@@ -242,6 +245,7 @@ public class MovieServiceImpl implements MovieService {
         movie.setStatus(status);
 
         log.info("Movie id={} status changed to '{}'", id, status);
+        movieEventPublisher.publishMovieUpdatedEvent(movie.getId(), movie.getTitle());
         return movieMapper.toResponse(movie);
     }
 

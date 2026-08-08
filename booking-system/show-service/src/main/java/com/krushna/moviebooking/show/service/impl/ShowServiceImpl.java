@@ -111,6 +111,10 @@ public class ShowServiceImpl implements ShowService {
 
     @Override
     @Transactional
+    @org.springframework.cache.annotation.Caching(evict = {
+            @org.springframework.cache.annotation.CacheEvict(value = com.krushna.moviebooking.show.config.RedisCacheConfig.SHOWS_CACHE, key = "#id"),
+            @org.springframework.cache.annotation.CacheEvict(value = com.krushna.moviebooking.show.config.RedisCacheConfig.SHOW_SEATS_CACHE, key = "#id")
+    })
     public ShowResponse updateShow(UUID id, ShowUpdateRequest request) {
         log.info("Updating show with id: {}", id);
 
@@ -161,6 +165,10 @@ public class ShowServiceImpl implements ShowService {
 
     @Override
     @Transactional
+    @org.springframework.cache.annotation.Caching(evict = {
+            @org.springframework.cache.annotation.CacheEvict(value = com.krushna.moviebooking.show.config.RedisCacheConfig.SHOWS_CACHE, key = "#id"),
+            @org.springframework.cache.annotation.CacheEvict(value = com.krushna.moviebooking.show.config.RedisCacheConfig.SHOW_SEATS_CACHE, key = "#id")
+    })
     public ShowResponse cancelShow(UUID id) {
         log.info("Cancelling show with id: {}", id);
 
@@ -180,6 +188,7 @@ public class ShowServiceImpl implements ShowService {
 
     @Override
     @Transactional(readOnly = true)
+    @org.springframework.cache.annotation.Cacheable(value = com.krushna.moviebooking.show.config.RedisCacheConfig.SHOWS_CACHE, key = "#id")
     public ShowResponse getShowById(UUID id) {
         log.debug("Fetching show by id: {}", id);
         Show show = findActiveShowOrThrow(id);
@@ -244,6 +253,7 @@ public class ShowServiceImpl implements ShowService {
 
     @Override
     @Transactional(readOnly = true)
+    @org.springframework.cache.annotation.Cacheable(value = com.krushna.moviebooking.show.config.RedisCacheConfig.SHOW_SEATS_CACHE, key = "#showId")
     public List<ShowSeatResponse> getShowSeats(UUID showId) {
         log.debug("Fetching seats for showId: {}", showId);
         findActiveShowOrThrow(showId);

@@ -38,6 +38,7 @@
         <spring-boot.version>4.1.0</spring-boot.version>
         <mapstruct.version>1.6.3</mapstruct.version>
         <lombok.version>1.18.38</lombok.version>
+        <logstash-logback.version>8.0</logstash-logback.version>
     </properties>
 
     <dependencyManagement>
@@ -58,6 +59,13 @@
                 <groupId>org.flywaydb</groupId>
                 <artifactId>flyway-mysql</artifactId>
                 <version>${flyway.version}</version>
+            </dependency>
+            
+            <!-- Observability Dependencies -->
+            <dependency>
+                <groupId>net.logstash.logback</groupId>
+                <artifactId>logstash-logback-encoder</artifactId>
+                <version>${logstash-logback.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

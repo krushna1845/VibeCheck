@@ -6,6 +6,20 @@ import java.util.List;
 import java.util.UUID;
 
 public class BookingEvents {
+    public record BookingCreatedEvent(
+            String eventId,
+            String eventType,
+            Integer eventVersion,
+            UUID bookingId,
+            String bookingReference,
+            UUID userId,
+            UUID showId,
+            List<UUID> showSeatIds,
+            BigDecimal totalAmount,
+            Instant expiresAt,
+            Instant timestamp
+    ) {}
+
     public record BookingConfirmedEvent(
             String eventId,
             String eventType,

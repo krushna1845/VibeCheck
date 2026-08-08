@@ -65,6 +65,7 @@ public class BookingServiceImpl implements BookingService {
     private final PaymentClient paymentClient;
     private final BookingEventPublisher bookingEventPublisher;
     private final BookingMapper bookingMapper;
+    private final SeatAvailabilityPublisher seatAvailabilityPublisher;
 
     // -------------------------------------------------------------------------
     // CREATE
@@ -149,6 +150,17 @@ public class BookingServiceImpl implements BookingService {
                 .timestamp(now)
                 .build();
         bookingEventPublisher.publishBookingCreated(createdEvent);
+
+        // 5. Broadcast real-time WebSocket: SEAT_LOCKED
+        seatAvailabilityPublisher.publishSeatAvailabilityEvent(
+                SeatAvailabilityEvent.builder()
+                        .eventType(SeatAvailabilityEventType.SEAT_LOCKED)
+                        .showId(saved.getShowId())
+                        .showSeatIds(request.showSeatIds())
+                        .bookingId(saved.getId())
+                        .bookingReference(bookingReference)
+                        .userId(saved.getUserId())
+                        .build());
 
         return bookingMapper.toResponse(saved);
     }
@@ -243,6 +255,17 @@ public class BookingServiceImpl implements BookingService {
                 .build();
         bookingEventPublisher.publishBookingConfirmed(confirmedEvent);
 
+        // Broadcast real-time WebSocket: BOOKING_CONFIRMED
+        seatAvailabilityPublisher.publishSeatAvailabilityEvent(
+                SeatAvailabilityEvent.builder()
+                        .eventType(SeatAvailabilityEventType.BOOKING_CONFIRMED)
+                        .showId(booking.getShowId())
+                        .showSeatIds(showSeatIds)
+                        .bookingId(booking.getId())
+                        .bookingReference(booking.getBookingReference())
+                        .userId(booking.getUserId())
+                        .build());
+
         return bookingMapper.toResponse(booking);
     }
 
@@ -284,6 +307,26 @@ public class BookingServiceImpl implements BookingService {
                 .build();
         bookingEventPublisher.publishBookingCancelled(cancelledEvent);
 
+        // Broadcast real-time WebSocket: BOOKING_CANCELLED + SEAT_RELEASED
+        seatAvailabilityPublisher.publishSeatAvailabilityEvent(
+                SeatAvailabilityEvent.builder()
+                        .eventType(SeatAvailabilityEventType.BOOKING_CANCELLED)
+                        .showId(booking.getShowId())
+                        .showSeatIds(showSeatIds)
+                        .bookingId(booking.getId())
+                        .bookingReference(bookingReference)
+                        .userId(booking.getUserId())
+                        .build());
+        seatAvailabilityPublisher.publishSeatAvailabilityEvent(
+                SeatAvailabilityEvent.builder()
+                        .eventType(SeatAvailabilityEventType.SEAT_RELEASED)
+                        .showId(booking.getShowId())
+                        .showSeatIds(showSeatIds)
+                        .bookingId(booking.getId())
+                        .bookingReference(bookingReference)
+                        .userId(booking.getUserId())
+                        .build());
+
         return bookingMapper.toResponse(booking);
     }
 
@@ -322,6 +365,26 @@ public class BookingServiceImpl implements BookingService {
                     .timestamp(Instant.now())
                     .build();
             bookingEventPublisher.publishBookingExpired(expiredEvent);
+
+            // Broadcast real-time WebSocket: BOOKING_EXPIRED + SEAT_RELEASED
+            seatAvailabilityPublisher.publishSeatAvailabilityEvent(
+                    SeatAvailabilityEvent.builder()
+                            .eventType(SeatAvailabilityEventType.BOOKING_EXPIRED)
+                            .showId(booking.getShowId())
+                            .showSeatIds(showSeatIds)
+                            .bookingId(booking.getId())
+                            .bookingReference(booking.getBookingReference())
+                            .userId(booking.getUserId())
+                            .build());
+            seatAvailabilityPublisher.publishSeatAvailabilityEvent(
+                    SeatAvailabilityEvent.builder()
+                            .eventType(SeatAvailabilityEventType.SEAT_RELEASED)
+                            .showId(booking.getShowId())
+                            .showSeatIds(showSeatIds)
+                            .bookingId(booking.getId())
+                            .bookingReference(booking.getBookingReference())
+                            .userId(booking.getUserId())
+                            .build());
 
             log.info("Booking ID {} set to EXPIRED", id);
         }

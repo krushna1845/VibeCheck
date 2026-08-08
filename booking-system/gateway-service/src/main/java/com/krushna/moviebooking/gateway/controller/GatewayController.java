@@ -1,6 +1,8 @@
 package com.krushna.moviebooking.gateway.controller;
 
 import com.krushna.moviebooking.gateway.security.JwtValidator;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -8,28 +10,39 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 /**
- * Gateway controller exposing health, token introspection, and routing status endpoints.
- * Production-grade reverse proxy routing lives in the upstream load balancer (Nginx/K8s ingress).
- * This controller provides the token validation API used by downstream services.
+ * Gateway controller exposing health, token introspection, circuit breaker statuses, and routing status endpoints.
  */
 @Slf4j
 @RestController
 @RequestMapping("/gateway")
 @RequiredArgsConstructor
-@Tag(name = "Gateway", description = "API Gateway management and token introspection endpoints")
+@Tag(name = "Gateway", description = "API Gateway management, health check, and token introspection endpoints")
 public class GatewayController {
 
     private final JwtValidator jwtValidator;
+    private final CircuitBreakerRegistry circuitBreakerRegistry;
 
-    @Operation(summary = "Gateway health check")
+    @Operation(summary = "Gateway health check including circuit breaker statuses")
     @GetMapping("/health")
-    public ResponseEntity<Map<String, String>> health() {
-        return ResponseEntity.ok(Map.of("status", "UP", "service", "gateway-service"));
+    public ResponseEntity<Map<String, Object>> health() {
+        Map<String, String> cbStates = new HashMap<>();
+        for (CircuitBreaker cb : circuitBreakerRegistry.getAllCircuitBreakers()) {
+            cbStates.put(cb.getName(), cb.getState().name());
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "status", "UP",
+                "service", "gateway-service",
+                "timestamp", Instant.now().toString(),
+                "circuitBreakers", cbStates
+        ));
     }
 
     @Operation(summary = "Introspect a JWT token", description = "Returns claims if token is valid, 401 if invalid")

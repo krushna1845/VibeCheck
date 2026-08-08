@@ -8,7 +8,8 @@ import com.krushna.moviebooking.notification.client.UserServiceClient;
 import com.krushna.moviebooking.notification.entity.Notification;
 import com.krushna.moviebooking.notification.entity.NotificationChannelType;
 import com.krushna.moviebooking.notification.entity.NotificationStatus;
-import com.krushna.moviebooking.notification.pdf.TicketPdfGenerator;
+import com.krushna.moviebooking.notification.dto.TicketDto;
+import com.krushna.moviebooking.notification.dto.TicketRequest;
 import com.krushna.moviebooking.notification.repository.NotificationRepository;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -43,7 +44,7 @@ class NotificationServiceImplTest {
     private UserServiceClient userServiceClient;
 
     @Mock
-    private TicketPdfGenerator ticketPdfGenerator;
+    private TicketService ticketService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final MeterRegistry meterRegistry = new SimpleMeterRegistry();
@@ -59,7 +60,7 @@ class NotificationServiceImplTest {
                 emailNotificationChannel,
                 smsNotificationChannel,
                 userServiceClient,
-                ticketPdfGenerator,
+                ticketService,
                 objectMapper,
                 meterRegistry
         );
@@ -105,16 +106,21 @@ class NotificationServiceImplTest {
                 .build();
 
         byte[] fakePdf = "PDF_CONTENT".getBytes();
+        TicketDto ticketDto = TicketDto.builder()
+                .bookingReference("BK-999")
+                .pdfBytes(fakePdf)
+                .build();
+
         when(userServiceClient.getUserProfile(userId))
                 .thenReturn(new UserProfile(userId, "john@example.com", null, "John", "Doe"));
-        when(ticketPdfGenerator.generate(any())).thenReturn(fakePdf);
+        when(ticketService.generateTicket(any(TicketRequest.class))).thenReturn(ticketDto);
         when(emailNotificationChannel.sendWithAttachment(any(Notification.class), eq(fakePdf), anyString())).thenReturn(true);
         when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Notification notification = notificationService.sendNotification(request);
 
         assertThat(notification.getStatus()).isEqualTo(NotificationStatus.SENT);
-        verify(ticketPdfGenerator).generate(any());
+        verify(ticketService).generateTicket(any(TicketRequest.class));
         verify(emailNotificationChannel).sendWithAttachment(any(Notification.class), eq(fakePdf), anyString());
     }
 

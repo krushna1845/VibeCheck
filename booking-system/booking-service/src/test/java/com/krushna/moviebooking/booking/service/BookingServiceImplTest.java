@@ -6,6 +6,9 @@ import com.krushna.moviebooking.booking.dto.*;
 import com.krushna.moviebooking.booking.entity.Booking;
 import com.krushna.moviebooking.booking.entity.BookingSeat;
 import com.krushna.moviebooking.booking.event.BookingEventPublisher;
+import com.krushna.moviebooking.booking.event.SeatAvailabilityEvent;
+import com.krushna.moviebooking.booking.event.SeatAvailabilityEventType;
+import com.krushna.moviebooking.booking.event.SeatAvailabilityPublisher;
 import com.krushna.moviebooking.booking.exception.*;
 import com.krushna.moviebooking.booking.mapper.BookingMapper;
 import com.krushna.moviebooking.booking.repository.BookingRepository;
@@ -14,6 +17,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -56,6 +60,9 @@ class BookingServiceImplTest {
 
     @Mock
     private BookingMapper bookingMapper;
+
+    @Mock
+    private SeatAvailabilityPublisher seatAvailabilityPublisher;
 
     @InjectMocks
     private BookingServiceImpl bookingService;
@@ -123,6 +130,12 @@ class BookingServiceImplTest {
         verify(seatLockService).lockSeats(any());
         verify(bookingRepository).save(any(Booking.class));
         verify(bookingEventPublisher).publishBookingCreated(any());
+
+        // Verify WebSocket SEAT_LOCKED event
+        ArgumentCaptor<SeatAvailabilityEvent> wsCaptor = ArgumentCaptor.forClass(SeatAvailabilityEvent.class);
+        verify(seatAvailabilityPublisher).publishSeatAvailabilityEvent(wsCaptor.capture());
+        assertThat(wsCaptor.getValue().eventType()).isEqualTo(SeatAvailabilityEventType.SEAT_LOCKED);
+        assertThat(wsCaptor.getValue().showId()).isEqualTo(showId);
     }
 
     @Test
@@ -145,6 +158,8 @@ class BookingServiceImplTest {
                 .isInstanceOf(SeatUnavailableException.class);
 
         verify(bookingRepository, never()).save(any());
+        // No WebSocket event when lock fails
+        verifyNoInteractions(seatAvailabilityPublisher);
     }
 
     @Test
@@ -178,7 +193,7 @@ class BookingServiceImplTest {
     }
 
     @Test
-    @DisplayName("confirmBooking successfully confirms pending booking")
+    @DisplayName("confirmBooking successfully confirms pending booking and broadcasts BOOKING_CONFIRMED WebSocket event")
     void confirmBooking_Success() {
         BookingSeat bookingSeat = BookingSeat.builder()
                 .showSeatId(showSeatId)
@@ -213,6 +228,13 @@ class BookingServiceImplTest {
         verify(showClient).updateShowSeatsStatus(eq(showId), eq(List.of(showSeatId)), eq("BOOKED"));
         verify(seatLockService).releaseLocks(eq(showId), eq(List.of(showSeatId)));
         verify(bookingEventPublisher).publishBookingConfirmed(any());
+
+        // Verify WebSocket BOOKING_CONFIRMED event
+        ArgumentCaptor<SeatAvailabilityEvent> wsCaptor = ArgumentCaptor.forClass(SeatAvailabilityEvent.class);
+        verify(seatAvailabilityPublisher).publishSeatAvailabilityEvent(wsCaptor.capture());
+        assertThat(wsCaptor.getValue().eventType()).isEqualTo(SeatAvailabilityEventType.BOOKING_CONFIRMED);
+        assertThat(wsCaptor.getValue().showId()).isEqualTo(showId);
+        assertThat(wsCaptor.getValue().bookingReference()).isEqualTo(bookingRef);
     }
 
     @Test
@@ -237,6 +259,8 @@ class BookingServiceImplTest {
 
         assertThat(response.status()).isEqualTo("CONFIRMED");
         verify(showClient, never()).updateShowSeatsStatus(any(), any(), any());
+        // No WebSocket event for idempotent confirm
+        verifyNoInteractions(seatAvailabilityPublisher);
     }
 
     @Test
@@ -255,7 +279,7 @@ class BookingServiceImplTest {
     }
 
     @Test
-    @DisplayName("cancelBooking successfully cancels booking and releases seats")
+    @DisplayName("cancelBooking successfully cancels booking and broadcasts BOOKING_CANCELLED + SEAT_RELEASED WebSocket events")
     void cancelBooking_Success() {
         BookingSeat seat = BookingSeat.builder().showSeatId(showSeatId).build();
         Booking booking = Booking.builder()
@@ -282,6 +306,50 @@ class BookingServiceImplTest {
         verify(showClient).updateShowSeatsStatus(eq(showId), eq(List.of(showSeatId)), eq("AVAILABLE"));
         verify(seatLockService).releaseLocks(eq(showId), eq(List.of(showSeatId)));
         verify(bookingEventPublisher).publishBookingCancelled(any());
+
+        // Verify two WebSocket events: BOOKING_CANCELLED + SEAT_RELEASED
+        ArgumentCaptor<SeatAvailabilityEvent> wsCaptor = ArgumentCaptor.forClass(SeatAvailabilityEvent.class);
+        verify(seatAvailabilityPublisher, times(2)).publishSeatAvailabilityEvent(wsCaptor.capture());
+
+        List<SeatAvailabilityEventType> capturedTypes = wsCaptor.getAllValues().stream()
+                .map(SeatAvailabilityEvent::eventType)
+                .toList();
+        assertThat(capturedTypes).containsExactlyInAnyOrder(
+                SeatAvailabilityEventType.BOOKING_CANCELLED,
+                SeatAvailabilityEventType.SEAT_RELEASED);
+    }
+
+    @Test
+    @DisplayName("expireBooking broadcasts BOOKING_EXPIRED + SEAT_RELEASED WebSocket events")
+    void expireBooking_BroadcastsWebSocketEvents() {
+        BookingSeat seat = BookingSeat.builder().showSeatId(showSeatId).build();
+        Booking booking = Booking.builder()
+                .id(bookingId)
+                .bookingReference(bookingRef)
+                .userId(userId)
+                .showId(showId)
+                .status("PENDING")
+                .bookingSeats(List.of(seat))
+                .build();
+
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking));
+
+        bookingService.expireBooking(bookingId);
+
+        assertThat(booking.getStatus()).isEqualTo("EXPIRED");
+        verify(seatLockService).releaseLocks(eq(showId), eq(List.of(showSeatId)));
+        verify(bookingEventPublisher).publishBookingExpired(any());
+
+        // Verify two WebSocket events: BOOKING_EXPIRED + SEAT_RELEASED
+        ArgumentCaptor<SeatAvailabilityEvent> wsCaptor = ArgumentCaptor.forClass(SeatAvailabilityEvent.class);
+        verify(seatAvailabilityPublisher, times(2)).publishSeatAvailabilityEvent(wsCaptor.capture());
+
+        List<SeatAvailabilityEventType> capturedTypes = wsCaptor.getAllValues().stream()
+                .map(SeatAvailabilityEvent::eventType)
+                .toList();
+        assertThat(capturedTypes).containsExactlyInAnyOrder(
+                SeatAvailabilityEventType.BOOKING_EXPIRED,
+                SeatAvailabilityEventType.SEAT_RELEASED);
     }
 
     @Test
@@ -308,3 +376,4 @@ class BookingServiceImplTest {
                 .isInstanceOf(BookingNotFoundException.class);
     }
 }
+

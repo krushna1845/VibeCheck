@@ -90,12 +90,11 @@
             <artifactId>spring-aspects</artifactId>
         </dependency>
 
-        <!-- PDF Generation (iText7) -->
+        <!-- PDF Generation (OpenPDF) -->
         <dependency>
-            <groupId>com.itextpdf</groupId>
-            <artifactId>itext7-core</artifactId>
-            <version>7.2.5</version>
-            <type>pom</type>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>1.3.39</version>
         </dependency>
 
         <!-- QR Code generation (ZXing) -->

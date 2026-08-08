@@ -24,18 +24,97 @@ services:
   booking-url: http://localhost:8084
   payment-url: http://localhost:8085
 
+# CORS Configuration
+cors:
+  allowed-origins: "*"
+  allowed-methods: "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+  allowed-headers: "*"
+  exposed-headers: "X-Correlation-ID,X-Gateway-Timestamp,Authorization"
+  max-age: 3600
+
 # Rate limiting
 rate-limit:
   max-requests-per-minute: 60
+
+# Resilience4j Configuration
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50.0
+        slowCallRateThreshold: 50.0
+        slowCallDurationThreshold: 3000ms
+        waitDurationInOpenState: 5000ms
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+    instances:
+      authService:
+        baseConfig: default
+      movieService:
+        baseConfig: default
+      theatreService:
+        baseConfig: default
+      showService:
+        baseConfig: default
+      bookingService:
+        baseConfig: default
+      paymentService:
+        baseConfig: default
+
+  retry:
+    configs:
+      default:
+        maxAttempts: 3
+        waitDuration: 500ms
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+    instances:
+      authService:
+        baseConfig: default
+      movieService:
+        baseConfig: default
+      theatreService:
+        baseConfig: default
+      showService:
+        baseConfig: default
+      bookingService:
+        baseConfig: default
+      paymentService:
+        baseConfig: default
+
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 3s
+        cancelRunningFuture: true
+    instances:
+      authService:
+        baseConfig: default
+      movieService:
+        baseConfig: default
+      theatreService:
+        baseConfig: default
+      showService:
+        baseConfig: default
+      bookingService:
+        baseConfig: default
+      paymentService:
+        baseConfig: default
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,prometheus,circuitbreakers
   endpoint:
     health:
-      show-details: when-authorized
+      show-details: always
+  health:
+    circuitbreakers:
+      enabled: true
 
 springdoc:
   api-docs:
@@ -46,3 +125,4 @@ springdoc:
 logging:
   level:
     com.krushna.moviebooking.gateway: INFO
+    io.github.resilience4j: DEBUG

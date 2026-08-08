@@ -52,6 +52,9 @@ class MovieServiceImplTest {
     @Mock
     private MovieMapper movieMapper;
 
+    @Mock
+    private com.krushna.moviebooking.movie.event.MovieEventPublisher movieEventPublisher;
+
     @InjectMocks
     private MovieServiceImpl movieService;
 

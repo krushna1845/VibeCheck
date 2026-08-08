@@ -1,0 +1,76 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: payment-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://mysql:3306/vibecheck_payment?useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:Krish@123}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 30000
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+  flyway:
+    enabled: false
+    locations: classpath:db/migration
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:kafka:29092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      properties:
+        enable.idempotence: true
+  redis:
+    host: ${SPRING_REDIS_HOST:redis}
+    port: ${SPRING_REDIS_PORT:6379}
+
+# Payment gateway configuration
+payment:
+  gateway:
+    provider: ${PAYMENT_GATEWAY_PROVIDER:MOCK}
+    base-url: https://mock-payment-gateway.internal
+    webhook-secret: ${PAYMENT_WEBHOOK_SECRET:change-me-in-production}
+    timeout-ms: 5000
+    razorpay:
+      key-id: ${RAZORPAY_KEY_ID:rzp_test_placeholder_key}
+      key-secret: ${RAZORPAY_KEY_SECRET:rzp_test_placeholder_secret}
+      webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:rzp_test_webhook_secret}
+      base-url: https://api.razorpay.com/v1
+    stripe:
+      api-key: ${STRIPE_API_KEY:sk_test_placeholder_key}
+      webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_test_webhook_secret}
+      base-url: https://api.stripe.com/v1
+    retry:
+      max-attempts: 3
+      initial-delay-ms: 500
+      multiplier: 2.0
+      max-delay-ms: 5000
+  idempotency:
+    ttl-seconds: 86400
+    callback-ttl-seconds: 604800
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    com.krushna.moviebooking.payment: INFO
+    org.springframework.retry: DEBUG

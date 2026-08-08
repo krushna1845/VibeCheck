@@ -24,21 +24,47 @@ spring:
     locations: classpath:db/migration
   kafka:
     bootstrap-servers: localhost:9092
+    consumer:
+      group-id: show-service-cache-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.krushna.moviebooking.*,java.util,java.lang"
   redis:
     host: localhost
     port: 6379
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 4
+        min-idle: 1
 
+# Show service configuration
 show:
   cleaning-buffer-minutes: 30
+  cache:
+    ttl: 600s   # 10 minutes default TTL for cached show and seat data
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,caches,prometheus
   endpoint:
     health:
       show-details: when-authorized
+    caches:
+      enabled: true
+    metrics:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        cache.gets: true
 
 springdoc:
   api-docs:
@@ -49,3 +75,6 @@ springdoc:
 logging:
   level:
     com.krushna.moviebooking.show: INFO
+    com.krushna.moviebooking.show.kafka: DEBUG
+    com.krushna.moviebooking.show.metrics: DEBUG
+
