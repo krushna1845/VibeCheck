@@ -1,14 +1,19 @@
 package com.krushna.moviebooking.notification.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.krushna.moviebooking.notification.channel.EmailNotificationChannel;
 import com.krushna.moviebooking.notification.channel.SmsNotificationChannel;
+import com.krushna.moviebooking.notification.client.UserProfile;
+import com.krushna.moviebooking.notification.client.UserServiceClient;
 import com.krushna.moviebooking.notification.entity.Notification;
 import com.krushna.moviebooking.notification.entity.NotificationChannelType;
 import com.krushna.moviebooking.notification.entity.NotificationStatus;
+import com.krushna.moviebooking.notification.pdf.TicketPdfGenerator;
 import com.krushna.moviebooking.notification.repository.NotificationRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -17,8 +22,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
 
 class NotificationServiceImplTest {
 
@@ -34,28 +39,48 @@ class NotificationServiceImplTest {
     @Mock
     private SmsNotificationChannel smsNotificationChannel;
 
-    @InjectMocks
+    @Mock
+    private UserServiceClient userServiceClient;
+
+    @Mock
+    private TicketPdfGenerator ticketPdfGenerator;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final MeterRegistry meterRegistry = new SimpleMeterRegistry();
+
     private NotificationServiceImpl notificationService;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        notificationService = new NotificationServiceImpl(
+                notificationRepository,
+                notificationTemplateService,
+                emailNotificationChannel,
+                smsNotificationChannel,
+                userServiceClient,
+                ticketPdfGenerator,
+                objectMapper,
+                meterRegistry
+        );
     }
 
     @Test
     void shouldSendEmailNotificationAndPersistSentStatus() {
+        UUID userId = UUID.randomUUID();
         NotificationRequest request = NotificationRequest.builder()
-                .userId(UUID.randomUUID())
+                .userId(userId)
                 .recipient("john@example.com")
                 .channelType(NotificationChannelType.EMAIL)
-                .eventType("BOOKING_CONFIRMED")
-                .templateKey("booking-confirmed")
-                .subject("Booking confirmed")
-                .content("Your booking is confirmed")
+                .eventType("PAYMENT_SUCCESS")
+                .templateKey("payment-success")
+                .subject("Payment Successful")
+                .content("Payment successful")
                 .metadata(Map.of("bookingReference", "BK-123"))
                 .build();
 
-        when(notificationTemplateService.render("booking-confirmed", request.metadata())).thenReturn("Your booking is confirmed");
+        when(userServiceClient.getUserProfile(userId))
+                .thenReturn(new UserProfile(userId, "john@example.com", null, "John", "Doe"));
         when(emailNotificationChannel.send(any(Notification.class))).thenReturn(true);
         when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -67,19 +92,48 @@ class NotificationServiceImplTest {
     }
 
     @Test
-    void shouldMarkNotificationAsFailedWhenChannelThrows() {
+    void shouldSendEmailWithPdfAttachmentWhenBookingConfirmed() {
+        UUID userId = UUID.randomUUID();
         NotificationRequest request = NotificationRequest.builder()
-                .userId(UUID.randomUUID())
+                .userId(userId)
+                .recipient("john@example.com")
+                .channelType(NotificationChannelType.EMAIL)
+                .eventType("BOOKING_CONFIRMED")
+                .templateKey("booking-confirmed")
+                .subject("Booking Confirmed")
+                .metadata(Map.of("bookingReference", "BK-999"))
+                .build();
+
+        byte[] fakePdf = "PDF_CONTENT".getBytes();
+        when(userServiceClient.getUserProfile(userId))
+                .thenReturn(new UserProfile(userId, "john@example.com", null, "John", "Doe"));
+        when(ticketPdfGenerator.generate(any())).thenReturn(fakePdf);
+        when(emailNotificationChannel.sendWithAttachment(any(Notification.class), eq(fakePdf), anyString())).thenReturn(true);
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Notification notification = notificationService.sendNotification(request);
+
+        assertThat(notification.getStatus()).isEqualTo(NotificationStatus.SENT);
+        verify(ticketPdfGenerator).generate(any());
+        verify(emailNotificationChannel).sendWithAttachment(any(Notification.class), eq(fakePdf), anyString());
+    }
+
+    @Test
+    void shouldMarkNotificationAsFailedWhenChannelFails() {
+        UUID userId = UUID.randomUUID();
+        NotificationRequest request = NotificationRequest.builder()
+                .userId(userId)
                 .recipient("+1234567890")
                 .channelType(NotificationChannelType.SMS)
                 .eventType("PAYMENT_FAILED")
                 .templateKey("payment-failed")
-                .subject("Payment failed")
+                .subject("Payment Failed")
                 .content("Payment failed")
                 .metadata(Map.of())
                 .build();
 
-        when(notificationTemplateService.render("payment-failed", request.metadata())).thenReturn("Payment failed");
+        when(userServiceClient.getUserProfile(userId))
+                .thenReturn(new UserProfile(userId, null, "+1234567890", "Jane", "Doe"));
         when(smsNotificationChannel.send(any(Notification.class))).thenReturn(false);
         when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
 

@@ -5,22 +5,22 @@ spring:
   application:
     name: show-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/show_service
-    username: postgres
-    password: postgres
+    url: jdbc:mysql://localhost:3306/vibecheck_show?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: Krish@123
     hikari:
       maximum-pool-size: 10
       connection-timeout: 30000
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     show-sql: false
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+        dialect: org.hibernate.dialect.MySQLDialect
   flyway:
-    enabled: true
+    enabled: false
     locations: classpath:db/migration
   kafka:
     bootstrap-servers: localhost:9092

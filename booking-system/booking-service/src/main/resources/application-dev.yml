@@ -1,8 +1,8 @@
-﻿spring:
+spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/booking_service_dev
-    username: postgres
-    password: postgres
+    url: jdbc:mysql://localhost:3306/vibecheck_booking?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: Krish@123
   kafka:
     bootstrap-servers: localhost:9092
   redis:

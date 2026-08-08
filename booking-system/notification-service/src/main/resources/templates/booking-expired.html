@@ -2,34 +2,27 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8"/>
-    <title>Payment Failed</title>
+    <title>Booking Expired</title>
     <style>
         body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f4f6f9; color: #333; margin: 0; padding: 20px; }
         .container { max-width: 600px; background: #ffffff; margin: 0 auto; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .header { background: linear-gradient(135deg, #ed213a, #93291e); color: #fff; padding: 24px; text-align: center; }
+        .header { background: linear-gradient(135deg, #e65c00, #F9D423); color: #fff; padding: 24px; text-align: center; }
         .header h1 { margin: 0; font-size: 24px; }
         .content { padding: 24px; line-height: 1.6; }
-        .details-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-        .details-table td { padding: 10px; border-bottom: 1px solid #eee; }
-        .details-table td.label { font-weight: bold; color: #555; width: 40%; }
+        .badge { display: inline-block; background: #fff3e0; color: #e65100; font-weight: bold; padding: 6px 12px; border-radius: 4px; font-size: 14px; }
         .footer { background: #fafafa; padding: 16px; text-align: center; font-size: 12px; color: #888; border-top: 1px solid #eee; }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="header">
-        <h1>❌ Payment Failed</h1>
+        <h1>🎬 VibeCheck Movie Booking</h1>
     </div>
     <div class="content">
         <p>Dear <strong th:text="${userName}">User</strong>,</p>
-        <p>Your payment for booking reference <strong th:text="${bookingReference}">REF123</strong> was unsuccessful.</p>
+        <p>Your pending booking <strong th:text="${bookingReference}">REF123</strong> has expired because payment was not completed within the allowed time limit. <span class="badge">EXPIRED</span></p>
 
-        <table class="details-table">
-            <tr><td class="label">Amount Attempted:</td><td>₹ <span th:text="${amount}">500.00</span></td></tr>
-            <tr><td class="label">Reason:</td><td th:text="${failureReason}">Card declined</td></tr>
-        </table>
-
-        <p>Please try making your payment again before your booking reservation expires.</p>
+        <p>The seats have been released back to the available pool. Please attempt your booking again if you wish to see the show.</p>
     </div>
     <div class="footer">
         &copy; 2026 VibeCheck Booking System. All rights reserved.

@@ -33,4 +33,16 @@ public class BookingEvents {
             String reason,
             Instant timestamp
     ) {}
+
+    public record BookingExpiredEvent(
+            String eventId,
+            String eventType,
+            Integer eventVersion,
+            UUID bookingId,
+            String bookingReference,
+            UUID userId,
+            UUID showId,
+            List<UUID> showSeatIds,
+            Instant timestamp
+    ) {}
 }
