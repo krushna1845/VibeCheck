@@ -3,6 +3,9 @@ package com.krushna.moviebooking.movie.controller;
 import com.krushna.moviebooking.movie.entity.Genre;
 import com.krushna.moviebooking.movie.repository.GenreRepository;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -18,17 +21,26 @@ public class GenreController {
 
     private final GenreRepository genreRepository;
 
-    @Operation(summary = "List all genres")
+    @Operation(summary = "List all genres", description = "Retrieves all available movie genres.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "List of genres returned successfully")
+    })
     @GetMapping
     public ResponseEntity<List<Genre>> getAllGenres() {
         return ResponseEntity.ok(genreRepository.findAll());
     }
 
-    @Operation(summary = "Get genre by ID")
+    @Operation(summary = "Get genre by ID", description = "Retrieves a genre by its integer ID.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Genre found"),
+            @ApiResponse(responseCode = "404", description = "Genre ID not found")
+    })
     @GetMapping("/{id}")
-    public ResponseEntity<Genre> getGenreById(@PathVariable Integer id) {
+    public ResponseEntity<Genre> getGenreById(
+            @Parameter(description = "Genre integer ID", required = true) @PathVariable Integer id) {
         return genreRepository.findById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 }
+

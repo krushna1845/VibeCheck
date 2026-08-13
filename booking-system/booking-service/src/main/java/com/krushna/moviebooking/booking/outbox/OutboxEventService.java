@@ -47,6 +47,13 @@ public class OutboxEventService {
         return outboxEventRepository.findTop50ByStatusOrderByCreatedAtAsc("PENDING");
     }
 
+    @Transactional(readOnly = true)
+    public List<OutboxEvent> fetchPendingOrRetryableEvents(int maxRetries) {
+        return outboxEventRepository.findTop50ByStatusInAndRetryCountLessThanOrderByCreatedAtAsc(
+                List.of("PENDING", "FAILED"), maxRetries);
+    }
+
+
     @Transactional
     public void markAsPublished(OutboxEvent outboxEvent) {
         outboxEvent.setStatus("PUBLISHED");

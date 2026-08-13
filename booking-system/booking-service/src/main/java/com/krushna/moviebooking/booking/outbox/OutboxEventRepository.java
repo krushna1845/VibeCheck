@@ -13,4 +13,7 @@ import java.util.UUID;
 public interface OutboxEventRepository extends JpaRepository<OutboxEvent, UUID> {
 
     List<OutboxEvent> findTop50ByStatusOrderByCreatedAtAsc(String status);
+
+    List<OutboxEvent> findTop50ByStatusInAndRetryCountLessThanOrderByCreatedAtAsc(List<String> statuses, int maxRetries);
 }
+

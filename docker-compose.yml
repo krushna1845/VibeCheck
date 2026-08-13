@@ -3,14 +3,15 @@ services:
   mysql:
     image: mysql:8.0
     container_name: vibecheck-mysql
+    restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: Krish@123
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-Krish@123}
     ports:
-      - "3306:3306"
+      - "${MYSQL_PORT:-3306}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-pKrish@123"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_ROOT_PASSWORD:-Krish@123}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -22,6 +23,7 @@ services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: vibecheck-zookeeper
+    restart: unless-stopped
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -43,6 +45,7 @@ services:
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     container_name: vibecheck-kafka
+    restart: unless-stopped
     depends_on:
       zookeeper:
         condition: service_healthy
@@ -72,6 +75,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: vibecheck-redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
@@ -92,8 +96,9 @@ services:
       context: ./booking-system/gateway-service
       dockerfile: Dockerfile
     container_name: vibecheck-gateway
+    restart: unless-stopped
     ports:
-      - "8079:8079"
+      - "${GATEWAY_PORT:-8079}:8079"
     environment:
       SPRING_PROFILES_ACTIVE: local
       SPRING_REDIS_HOST: redis
@@ -119,13 +124,14 @@ services:
       context: ./booking-system/auth-service
       dockerfile: Dockerfile
     container_name: vibecheck-auth
+    restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "${AUTH_PORT:-8080}:8080"
     environment:
       SPRING_PROFILES_ACTIVE: local
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/vibecheck_auth?useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: Krish@123
+      SPRING_DATASOURCE_PASSWORD: ${DB_ROOT_PASSWORD:-Krish@123}
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -151,13 +157,14 @@ services:
       context: ./booking-system/movie-service
       dockerfile: Dockerfile
     container_name: vibecheck-movie
+    restart: unless-stopped
     ports:
-      - "8081:8081"
+      - "${MOVIE_PORT:-8081}:8081"
     environment:
       SPRING_PROFILES_ACTIVE: local
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/vibecheck_movie?useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: Krish@123
+      SPRING_DATASOURCE_PASSWORD: ${DB_ROOT_PASSWORD:-Krish@123}
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -183,13 +190,14 @@ services:
       context: ./booking-system/theatre-service
       dockerfile: Dockerfile
     container_name: vibecheck-theatre
+    restart: unless-stopped
     ports:
-      - "8082:8082"
+      - "${THEATRE_PORT:-8082}:8082"
     environment:
       SPRING_PROFILES_ACTIVE: local
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/vibecheck_theatre?useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: Krish@123
+      SPRING_DATASOURCE_PASSWORD: ${DB_ROOT_PASSWORD:-Krish@123}
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -215,13 +223,14 @@ services:
       context: ./booking-system/show-service
       dockerfile: Dockerfile
     container_name: vibecheck-show
+    restart: unless-stopped
     ports:
-      - "8083:8083"
+      - "${SHOW_PORT:-8083}:8083"
     environment:
       SPRING_PROFILES_ACTIVE: local
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/vibecheck_show?useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: Krish@123
+      SPRING_DATASOURCE_PASSWORD: ${DB_ROOT_PASSWORD:-Krish@123}
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -247,13 +256,14 @@ services:
       context: ./booking-system/booking-service
       dockerfile: Dockerfile
     container_name: vibecheck-booking
+    restart: unless-stopped
     ports:
-      - "8084:8084"
+      - "${BOOKING_PORT:-8084}:8084"
     environment:
       SPRING_PROFILES_ACTIVE: local
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/vibecheck_booking?useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: Krish@123
+      SPRING_DATASOURCE_PASSWORD: ${DB_ROOT_PASSWORD:-Krish@123}
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -279,13 +289,14 @@ services:
       context: ./booking-system/payment-service
       dockerfile: Dockerfile
     container_name: vibecheck-payment
+    restart: unless-stopped
     ports:
-      - "8085:8085"
+      - "${PAYMENT_PORT:-8085}:8085"
     environment:
       SPRING_PROFILES_ACTIVE: local
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/vibecheck_payment?useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: Krish@123
+      SPRING_DATASOURCE_PASSWORD: ${DB_ROOT_PASSWORD:-Krish@123}
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -318,13 +329,14 @@ services:
       context: ./booking-system/notification-service
       dockerfile: Dockerfile
     container_name: vibecheck-notification
+    restart: unless-stopped
     ports:
-      - "8086:8086"
+      - "${NOTIFICATION_PORT:-8086}:8086"
     environment:
       SPRING_PROFILES_ACTIVE: local
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/vibecheck_notification?useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: Krish@123
+      SPRING_DATASOURCE_PASSWORD: ${DB_ROOT_PASSWORD:-Krish@123}
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -369,3 +381,4 @@ networks:
     ipam:
       config:
         - subnet: 172.28.0.0/16
+

@@ -3,6 +3,12 @@ package com.krushna.moviebooking.payment.controller;
 import com.krushna.moviebooking.payment.dto.PaymentCallback;
 import com.krushna.moviebooking.payment.dto.PaymentResponse;
 import com.krushna.moviebooking.payment.service.PaymentService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/payments")
 @RequiredArgsConstructor
+@Tag(name = "Payment Callbacks", description = "Inbound gateway callbacks endpoint protected by HMAC-SHA256 signature verification")
 public class PaymentCallbackController {
 
     private final PaymentService paymentService;
@@ -41,6 +48,13 @@ public class PaymentCallbackController {
      * @param callback Validated inbound callback payload from the payment gateway
      * @return 200 OK with the updated {@link PaymentResponse}
      */
+    @Operation(summary = "Handle Gateway Callback", description = "Inbound payment gateway callback reconciliation endpoint. Unauthenticated at HTTP level, secured via HMAC-SHA256 signature.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Callback processed or idempotent duplicate response returned",
+                    content = @Content(schema = @Schema(implementation = PaymentResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid signature or malformed payload"),
+            @ApiResponse(responseCode = "404", description = "Associated payment record not found")
+    })
     @PostMapping("/callback")
     public ResponseEntity<PaymentResponse> handleCallback(@Valid @RequestBody PaymentCallback callback) {
         log.info("[CallbackController] Received callback | txnRef={} status={} gateway={}",
@@ -51,3 +65,4 @@ public class PaymentCallbackController {
         return ResponseEntity.ok(response);
     }
 }
+
