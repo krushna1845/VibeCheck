@@ -1,11 +1,6 @@
 package com.krushna.moviebooking.common;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-
-@SpringBootApplication
+// Common module is a shared library, not a standalone application
+// No @SpringBootApplication or main method needed
 public class CommonModuleApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(CommonModuleApplication.class, args);
-    }
 }

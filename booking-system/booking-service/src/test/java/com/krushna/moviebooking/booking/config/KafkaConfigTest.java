@@ -64,7 +64,7 @@ class KafkaConfigTest {
     @Test
     @DisplayName("Should configure ProducerFactory and KafkaTemplate")
     void testProducerFactoryAndTemplate() {
-        ProducerFactory<String, Object> producerFactory = kafkaConfig.producerFactory(objectMapper);
+        ProducerFactory<String, Object> producerFactory = kafkaConfig.producerFactory();
         assertThat(producerFactory).isNotNull();
 
         KafkaTemplate<String, Object> kafkaTemplate = kafkaConfig.kafkaTemplate(producerFactory);
@@ -74,10 +74,10 @@ class KafkaConfigTest {
     @Test
     @DisplayName("Should configure ConsumerFactory, ErrorHandler, and ListenerContainerFactory")
     void testConsumerAndErrorHandlerBeans() {
-        ConsumerFactory<String, Object> consumerFactory = kafkaConfig.consumerFactory(objectMapper);
+        ConsumerFactory<String, Object> consumerFactory = kafkaConfig.consumerFactory();
         assertThat(consumerFactory).isNotNull();
 
-        ProducerFactory<String, Object> producerFactory = kafkaConfig.producerFactory(objectMapper);
+        ProducerFactory<String, Object> producerFactory = kafkaConfig.producerFactory();
         KafkaTemplate<String, Object> kafkaTemplate = kafkaConfig.kafkaTemplate(producerFactory);
         DeadLetterPublishingRecoverer recoverer = kafkaConfig.deadLetterPublishingRecoverer(kafkaTemplate);
         assertThat(recoverer).isNotNull();

@@ -51,27 +51,16 @@ public class ShowKafkaConfig {
     // -------------------------------------------------------------------------
 
     @Bean
-    public ConsumerFactory<String, Object> showConsumerFactory(ObjectMapper objectMapper) {
+    public ConsumerFactory<String, Object> showConsumerFactory() {
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ConsumerConfig.GROUP_ID_CONFIG, CONSUMER_GROUP_ID);
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.krushna.moviebooking.*");
 
-        JsonDeserializer<Object> jsonDeserializer = new JsonDeserializer<>(objectMapper);
-        jsonDeserializer.addTrustedPackages(
-                "com.krushna.moviebooking.*",
-                "java.util",
-                "java.lang"
-        );
-        jsonDeserializer.setUseTypeHeaders(true);
-
-        return new DefaultKafkaConsumerFactory<>(
-                props,
-                new ErrorHandlingDeserializer<>(new StringDeserializer()),
-                new ErrorHandlingDeserializer<>(jsonDeserializer)
-        );
+        return new DefaultKafkaConsumerFactory<>(props);
     }
 
     @Bean
@@ -97,7 +86,7 @@ public class ShowKafkaConfig {
     // -------------------------------------------------------------------------
 
     @Bean
-    public ProducerFactory<String, Object> showProducerFactory(ObjectMapper objectMapper) {
+    public ProducerFactory<String, Object> showProducerFactory() {
         Map<String, Object> configProps = new HashMap<>();
         configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
@@ -106,10 +95,7 @@ public class ShowKafkaConfig {
         configProps.put(ProducerConfig.RETRIES_CONFIG, 3);
         configProps.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
 
-        JsonSerializer<Object> jsonSerializer = new JsonSerializer<>(objectMapper);
-        jsonSerializer.setAddTypeInfo(true);
-
-        return new DefaultKafkaProducerFactory<>(configProps, new StringSerializer(), jsonSerializer);
+        return new DefaultKafkaProducerFactory<>(configProps);
     }
 
     @Bean

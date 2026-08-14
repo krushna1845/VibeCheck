@@ -1,6 +1,6 @@
 package com.krushna.moviebooking.movie.event;
 
-import com.krushna.moviebooking.common.event.MovieEvents.MovieUpdatedEvent;
+import com.krushna.moviebooking.common.event.MovieEvents;
 import com.krushna.moviebooking.movie.config.KafkaConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +19,7 @@ public class MovieEventPublisher {
 
     public void publishMovieUpdatedEvent(UUID movieId, String title) {
         String eventId = UUID.randomUUID().toString();
-        MovieUpdatedEvent event = new MovieUpdatedEvent(
+        MovieEvents.MovieUpdatedEvent event = new MovieEvents.MovieUpdatedEvent(
                 eventId,
                 "MOVIE_UPDATED",
                 1,
