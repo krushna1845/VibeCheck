@@ -21,7 +21,7 @@ management:
     defaults:
       enabled: true
     redis:
-      enabled: true
+      enabled: false
     db:
       enabled: true
     kafka:

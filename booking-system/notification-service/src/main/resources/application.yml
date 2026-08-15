@@ -4,27 +4,29 @@ server:
 spring:
   application:
     name: notification-service
+  main:
+    allow-bean-definition-overriding: true
 
   datasource:
-    url: jdbc:mysql://localhost:3306/vibecheck_notification?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:Krish@123}
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/vibecheck_notification?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:Krish@123}
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
     open-in-view: false
 
   flyway:
-    enabled: true
+    enabled: false
     locations: classpath:db/migration
     baseline-on-migrate: true
 
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     consumer:
       group-id: notification-service-group
       auto-offset-reset: earliest
@@ -37,8 +39,8 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
   redis:
-    host: ${REDIS_HOST:localhost}
-    port: ${REDIS_PORT:6379}
+    host: ${SPRING_REDIS_HOST:redis}
+    port: ${SPRING_REDIS_PORT:6379}
 
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
@@ -67,6 +69,10 @@ management:
     web:
       exposure:
         include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      redis:
+        enabled: false
   metrics:
     export:
       prometheus:

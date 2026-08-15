@@ -5,9 +5,9 @@ spring:
   application:
     name: payment-service
   datasource:
-    url: jdbc:mysql://localhost:3306/vibecheck_payment?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-    username: root
-    password: Krish@123
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/vibecheck_payment?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:Krish@123}
     hikari:
       maximum-pool-size: 10
       connection-timeout: 30000
@@ -23,7 +23,7 @@ spring:
     enabled: false
     locations: classpath:db/migration
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -32,8 +32,8 @@ spring:
       properties:
         enable.idempotence: true
   redis:
-    host: localhost
-    port: 6379
+    host: ${SPRING_REDIS_HOST:redis}
+    port: ${SPRING_REDIS_PORT:6379}
 
 management:
   endpoints:
@@ -42,7 +42,10 @@ management:
         include: health,info,metrics
   endpoint:
     health:
-      show-details: when-authorized
+      redis:
+        enabled: false
+  health:
+    show-details: when-authorized
 
 # Payment gateway configuration
 payment:
