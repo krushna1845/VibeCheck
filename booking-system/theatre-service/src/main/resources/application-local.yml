@@ -7,7 +7,7 @@ spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://mysql:3306/vibecheck_theatre?useSSL=false&allowPublicKeyRetrieval=true}
     username: ${SPRING_DATASOURCE_USERNAME:root}
-    password: ${SPRING_DATASOURCE_PASSWORD:Krish@123}
+    password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 10
@@ -28,6 +28,12 @@ spring:
   redis:
     host: ${SPRING_REDIS_HOST:redis}
     port: ${SPRING_REDIS_PORT:6379}
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
 
 management:
   endpoints:
@@ -36,7 +42,14 @@ management:
         include: health,info,metrics
   endpoint:
     health:
-      show-details: when-authorized
+      redis:
+        enabled: false
+      redisreactive:
+        enabled: false
+  health:
+    redis:
+      enabled: false
+    show-details: when-authorized
 
 springdoc:
   api-docs:

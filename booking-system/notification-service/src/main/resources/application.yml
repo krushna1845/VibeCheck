@@ -10,7 +10,7 @@ spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/vibecheck_notification?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true}
     username: ${SPRING_DATASOURCE_USERNAME:root}
-    password: ${SPRING_DATASOURCE_PASSWORD:Krish@123}
+    password: ${SPRING_DATASOURCE_PASSWORD}
 
   jpa:
     hibernate:
@@ -41,6 +41,16 @@ spring:
   redis:
     host: ${SPRING_REDIS_HOST:redis}
     port: ${SPRING_REDIS_PORT:6379}
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+  data:
+    redis:
+      repositories:
+        enabled: false
 
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
@@ -73,6 +83,11 @@ management:
     health:
       redis:
         enabled: false
+      redisreactive:
+        enabled: false
+  health:
+    redis:
+      enabled: false
   metrics:
     export:
       prometheus:

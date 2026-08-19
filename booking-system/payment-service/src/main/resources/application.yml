@@ -7,7 +7,7 @@ spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/vibecheck_payment?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true}
     username: ${SPRING_DATASOURCE_USERNAME:root}
-    password: ${SPRING_DATASOURCE_PASSWORD:Krish@123}
+    password: ${SPRING_DATASOURCE_PASSWORD}
     hikari:
       maximum-pool-size: 10
       connection-timeout: 30000
@@ -34,6 +34,16 @@ spring:
   redis:
     host: ${SPRING_REDIS_HOST:redis}
     port: ${SPRING_REDIS_PORT:6379}
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+  data:
+    redis:
+      repositories:
+        enabled: false
 
 management:
   endpoints:
@@ -44,7 +54,11 @@ management:
     health:
       redis:
         enabled: false
+      redisreactive:
+        enabled: false
   health:
+    redis:
+      enabled: false
     show-details: when-authorized
 
 # Payment gateway configuration
@@ -52,16 +66,16 @@ payment:
   gateway:
     provider: ${PAYMENT_GATEWAY_PROVIDER:MOCK}
     base-url: https://mock-payment-gateway.internal
-    webhook-secret: ${PAYMENT_WEBHOOK_SECRET:change-me-in-production}
+    webhook-secret: ${PAYMENT_WEBHOOK_SECRET}
     timeout-ms: 5000
     razorpay:
-      key-id: ${RAZORPAY_KEY_ID:rzp_test_placeholder_key}
-      key-secret: ${RAZORPAY_KEY_SECRET:rzp_test_placeholder_secret}
-      webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:rzp_test_webhook_secret}
+      key-id: ${RAZORPAY_KEY_ID}
+      key-secret: ${RAZORPAY_KEY_SECRET}
+      webhook-secret: ${RAZORPAY_WEBHOOK_SECRET}
       base-url: https://api.razorpay.com/v1
     stripe:
-      api-key: ${STRIPE_API_KEY:sk_test_placeholder_key}
-      webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_test_webhook_secret}
+      api-key: ${STRIPE_API_KEY}
+      webhook-secret: ${STRIPE_WEBHOOK_SECRET}
       base-url: https://api.stripe.com/v1
     retry:
       max-attempts: 3

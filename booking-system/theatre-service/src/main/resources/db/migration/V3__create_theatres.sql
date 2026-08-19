@@ -12,19 +12,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 1. Table: cities
-CREATE TABLE cities (
-    id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    state VARCHAR(100) NOT NULL,
-    country VARCHAR(100) NOT NULL DEFAULT 'India',
-    pincode VARCHAR(20) NULL,
-    CONSTRAINT uk_cities_name_state UNIQUE (name, state)
-);
-
-CREATE INDEX idx_cities_name ON cities(name);
-
--- 2. Table: theatres
+-- 1. Table: theatres
 CREATE TABLE theatres (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     city_id INT NOT NULL,
