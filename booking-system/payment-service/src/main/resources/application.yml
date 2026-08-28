@@ -59,6 +59,8 @@ management:
   health:
     redis:
       enabled: false
+    redisreactive:
+      enabled: false
     show-details: when-authorized
 
 # Payment gateway configuration

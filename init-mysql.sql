@@ -1,0 +1,7 @@
+CREATE DATABASE IF NOT EXISTS vibecheck_auth;
+CREATE DATABASE IF NOT EXISTS vibecheck_movie;
+CREATE DATABASE IF NOT EXISTS vibecheck_theatre;
+CREATE DATABASE IF NOT EXISTS vibecheck_show;
+CREATE DATABASE IF NOT EXISTS vibecheck_booking;
+CREATE DATABASE IF NOT EXISTS vibecheck_payment;
+CREATE DATABASE IF NOT EXISTS vibecheck_notification;

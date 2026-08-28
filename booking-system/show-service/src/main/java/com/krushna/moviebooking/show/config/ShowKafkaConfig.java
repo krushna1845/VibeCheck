@@ -59,6 +59,7 @@ public class ShowKafkaConfig {
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
         props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.krushna.moviebooking.*");
+        props.put(JsonDeserializer.TYPE_MAPPINGS, "com.krushna.moviebooking.booking.event.BookingCreatedEvent:com.krushna.moviebooking.common.event.BookingEvents$BookingCreatedEvent,com.krushna.moviebooking.booking.event.BookingConfirmedEvent:com.krushna.moviebooking.common.event.BookingEvents$BookingConfirmedEvent,com.krushna.moviebooking.booking.event.BookingCancelledEvent:com.krushna.moviebooking.common.event.BookingEvents$BookingCancelledEvent,com.krushna.moviebooking.booking.event.BookingExpiredEvent:com.krushna.moviebooking.common.event.BookingEvents$BookingExpiredEvent,com.krushna.moviebooking.movie.event.MovieUpdatedEvent:com.krushna.moviebooking.common.event.MovieEvents$MovieUpdatedEvent");
 
         return new DefaultKafkaConsumerFactory<>(props);
     }

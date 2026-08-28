@@ -34,6 +34,7 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "com.krushna.moviebooking.*"
+        spring.json.type.mapping: "com.krushna.moviebooking.booking.event.BookingConfirmedEvent:com.krushna.moviebooking.common.event.BookingEvents$BookingConfirmedEvent,com.krushna.moviebooking.booking.event.BookingCancelledEvent:com.krushna.moviebooking.common.event.BookingEvents$BookingCancelledEvent,com.krushna.moviebooking.booking.event.BookingExpiredEvent:com.krushna.moviebooking.common.event.BookingEvents$BookingExpiredEvent"
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -87,6 +88,8 @@ management:
         enabled: false
   health:
     redis:
+      enabled: false
+    redisreactive:
       enabled: false
   metrics:
     export:

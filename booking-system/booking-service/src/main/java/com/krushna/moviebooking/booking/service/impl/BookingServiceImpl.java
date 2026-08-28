@@ -100,43 +100,64 @@ public class BookingServiceImpl implements BookingService {
         }
 
         // 2. Compute pricing
-        List<ShowClient.ShowSeatDto> seatDtos = showClient.getShowSeatsByIds(request.showId(), request.showSeatIds());
-        BigDecimal subtotal = seatDtos.stream()
-                .map(ShowClient.ShowSeatDto::price)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        List<ShowClient.ShowSeatDto> seatDtos;
+        BigDecimal subtotal;
+        BigDecimal taxAmount;
+        BigDecimal convenienceFee;
+        BigDecimal totalAmount;
+        Instant now;
+        Instant expiresAt;
+        Booking saved;
 
-        BigDecimal taxAmount = subtotal.multiply(TAX_RATE).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal convenienceFee = DEFAULT_CONVENIENCE_FEE;
-        BigDecimal totalAmount = subtotal.add(taxAmount).add(convenienceFee);
+        try {
+            seatDtos = showClient.getShowSeatsByIds(request.showId(), request.showSeatIds());
+            subtotal = seatDtos.stream()
+                    .map(ShowClient.ShowSeatDto::price)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        Instant now = Instant.now();
-        Instant expiresAt = now.plus(Duration.ofMinutes(RESERVATION_TTL_MINUTES));
+            taxAmount = subtotal.multiply(TAX_RATE).setScale(2, RoundingMode.HALF_UP);
+            convenienceFee = DEFAULT_CONVENIENCE_FEE;
+            totalAmount = subtotal.add(taxAmount).add(convenienceFee);
 
-        // 3. Construct Booking aggregate
-        Booking booking = Booking.builder()
-                .bookingReference(bookingReference)
-                .userId(request.userId())
-                .showId(request.showId())
-                .totalAmount(totalAmount)
-                .taxAmount(taxAmount)
-                .convenienceFee(convenienceFee)
-                .status("PENDING")
-                .expiresAt(expiresAt)
-                .bookingSeats(new ArrayList<>())
-                .build();
+            now = Instant.now();
+            expiresAt = now.plus(Duration.ofMinutes(RESERVATION_TTL_MINUTES));
 
-        for (ShowClient.ShowSeatDto seatDto : seatDtos) {
-            BookingSeat bookingSeat = BookingSeat.builder()
-                    .booking(booking)
-                    .showSeatId(seatDto.id())
-                    .seatNumber(seatDto.seatNumber())
-                    .price(seatDto.price())
+            // 3. Construct Booking aggregate
+            Booking booking = Booking.builder()
+                    .bookingReference(bookingReference)
+                    .userId(request.userId())
+                    .showId(request.showId())
+                    .totalAmount(totalAmount)
+                    .taxAmount(taxAmount)
+                    .convenienceFee(convenienceFee)
+                    .status("PENDING")
+                    .expiresAt(expiresAt)
+                    .bookingSeats(new ArrayList<>())
                     .build();
-            booking.getBookingSeats().add(bookingSeat);
-        }
 
-        Booking saved = bookingRepository.save(booking);
-        log.info("Booking created successfully with reference: {} and id: {}", bookingReference, saved.getId());
+            for (ShowClient.ShowSeatDto seatDto : seatDtos) {
+                BookingSeat bookingSeat = BookingSeat.builder()
+                        .booking(booking)
+                        .showSeatId(seatDto.id())
+                        .seatNumber(seatDto.seatNumber())
+                        .price(seatDto.price())
+                        .build();
+                booking.getBookingSeats().add(bookingSeat);
+            }
+
+            saved = bookingRepository.save(booking);
+            log.info("Booking created successfully with reference: {} and id: {}", bookingReference, saved.getId());
+
+        } catch (Exception ex) {
+            // BUG-FIX (Milestone 13): If any downstream call or DB write fails after Redis locks were
+            // acquired, release all seat locks immediately so other customers are not blocked
+            // for the full TTL window. Without this finally-block the seat would remain orphaned
+            // in Redis for up to 5 minutes even though no booking record was persisted.
+            log.error("Booking creation failed after Redis locks acquired for showId: {}. Releasing {} locks. Error: {}",
+                    request.showId(), request.showSeatIds().size(), ex.getMessage());
+            seatLockService.releaseLocks(request.showId(), request.showSeatIds());
+            throw ex;
+        }
 
         // 4. Publish Domain Event
         BookingCreatedEvent createdEvent = BookingCreatedEvent.builder()
@@ -145,9 +166,9 @@ public class BookingServiceImpl implements BookingService {
                 .userId(saved.getUserId())
                 .showId(saved.getShowId())
                 .showSeatIds(request.showSeatIds())
-                .totalAmount(totalAmount)
-                .expiresAt(expiresAt)
-                .timestamp(now)
+                .totalAmount(saved.getTotalAmount())
+                .expiresAt(saved.getExpiresAt())
+                .timestamp(Instant.now())
                 .build();
         bookingEventPublisher.publishBookingCreated(createdEvent);
 

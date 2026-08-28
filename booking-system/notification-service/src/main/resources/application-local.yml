@@ -77,6 +77,8 @@ management:
   health:
     redis:
       enabled: false
+    redisreactive:
+      enabled: false
   metrics:
     export:
       prometheus:

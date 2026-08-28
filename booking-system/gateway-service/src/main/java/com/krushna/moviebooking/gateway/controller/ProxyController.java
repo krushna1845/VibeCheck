@@ -73,12 +73,12 @@ public class ProxyController {
         return proxyRequest("authService", authServiceUrl, "/api/v1/auth", request, body, fallbackController::authFallback);
     }
 
-    @RequestMapping("/movies/**")
+    @RequestMapping({"/movies/**", "/genres/**", "/languages/**"})
     public ResponseEntity<?> proxyMovies(HttpServletRequest request, @RequestBody(required = false) byte[] body) {
         return proxyRequest("movieService", movieServiceUrl, "/api/v1/movies", request, body, fallbackController::movieFallback);
     }
 
-    @RequestMapping("/theatres/**")
+    @RequestMapping({"/theatres/**", "/screens/**", "/seats/**", "/cities/**"})
     public ResponseEntity<?> proxyTheatres(HttpServletRequest request, @RequestBody(required = false) byte[] body) {
         return proxyRequest("theatreService", theatreServiceUrl, "/api/v1/theatres", request, body, fallbackController::theatreFallback);
     }
