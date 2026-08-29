@@ -1,88 +1,74 @@
 package com.krushna.moviebooking.booking.event;
 
-import com.krushna.moviebooking.booking.config.KafkaConfig;
 import com.krushna.moviebooking.booking.outbox.OutboxEventService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.header.internals.RecordHeader;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
-import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 
 /**
- * Primary implementation of {@link BookingEventPublisher} using Spring KafkaTemplate and Outbox-ready architecture.
+ * Primary transactional implementation of {@link BookingEventPublisher}.
+ *
+ * <p>Persists domain events to the outbox table within the caller's active database transaction.
+ * Never performs synchronous or asynchronous Kafka network I/O directly, adhering strictly to
+ * the Transactional Outbox pattern.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class KafkaBookingEventPublisher implements BookingEventPublisher {
 
-    private final KafkaTemplate<String, Object> kafkaTemplate;
     private final OutboxEventService outboxEventService;
 
     @Override
     public void publishBookingCreated(BookingCreatedEvent event) {
-        log.info("[KafkaPublisher] Publishing BookingCreatedEvent | ref={} id={} version={}",
+        log.info("[OutboxPublisher] Enqueuing BookingCreatedEvent to outbox | ref={} id={} version={}",
                 event.bookingReference(), event.eventId(), event.eventVersion());
-        outboxEventService.saveEvent("Booking", event.bookingReference(), event.eventType(), event.eventVersion(), event);
-        sendEvent(KafkaConfig.BOOKING_CREATED_TOPIC, event.bookingReference(), event.eventId(), event.eventType(), event);
+        UUID eventUuid = parseUuidSafely(event.eventId());
+        outboxEventService.saveEvent(eventUuid, "Booking", event.bookingReference(), event.eventType(), event.eventVersion(), event);
     }
 
     @Override
     public void publishBookingConfirmed(BookingConfirmedEvent event) {
-        log.info("[KafkaPublisher] Publishing BookingConfirmedEvent | ref={} id={} version={}",
+        log.info("[OutboxPublisher] Enqueuing BookingConfirmedEvent to outbox | ref={} id={} version={}",
                 event.bookingReference(), event.eventId(), event.eventVersion());
-        outboxEventService.saveEvent("Booking", event.bookingReference(), event.eventType(), event.eventVersion(), event);
-        sendEvent(KafkaConfig.BOOKING_CONFIRMED_TOPIC, event.bookingReference(), event.eventId(), event.eventType(), event);
+        UUID eventUuid = parseUuidSafely(event.eventId());
+        outboxEventService.saveEvent(eventUuid, "Booking", event.bookingReference(), event.eventType(), event.eventVersion(), event);
     }
 
     @Override
     public void publishBookingCancelled(BookingCancelledEvent event) {
-        log.info("[KafkaPublisher] Publishing BookingCancelledEvent | ref={} id={} version={}",
+        log.info("[OutboxPublisher] Enqueuing BookingCancelledEvent to outbox | ref={} id={} version={}",
                 event.bookingReference(), event.eventId(), event.eventVersion());
-        outboxEventService.saveEvent("Booking", event.bookingReference(), event.eventType(), event.eventVersion(), event);
-        sendEvent(KafkaConfig.BOOKING_CANCELLED_TOPIC, event.bookingReference(), event.eventId(), event.eventType(), event);
+        UUID eventUuid = parseUuidSafely(event.eventId());
+        outboxEventService.saveEvent(eventUuid, "Booking", event.bookingReference(), event.eventType(), event.eventVersion(), event);
     }
 
     @Override
     public void publishBookingExpired(BookingExpiredEvent event) {
-        log.info("[KafkaPublisher] Publishing BookingExpiredEvent | ref={} id={} version={}",
+        log.info("[OutboxPublisher] Enqueuing BookingExpiredEvent to outbox | ref={} id={} version={}",
                 event.bookingReference(), event.eventId(), event.eventVersion());
-        outboxEventService.saveEvent("Booking", event.bookingReference(), event.eventType(), event.eventVersion(), event);
-        sendEvent(KafkaConfig.BOOKING_EXPIRED_TOPIC, event.bookingReference(), event.eventId(), event.eventType(), event);
+        UUID eventUuid = parseUuidSafely(event.eventId());
+        outboxEventService.saveEvent(eventUuid, "Booking", event.bookingReference(), event.eventType(), event.eventVersion(), event);
     }
 
     @Override
     public void publishBookingFailed(BookingFailedEvent event) {
-        log.info("[KafkaPublisher] Publishing BookingFailedEvent | ref={} id={} version={}",
+        log.info("[OutboxPublisher] Enqueuing BookingFailedEvent to outbox | ref={} id={} version={}",
                 event.bookingReference(), event.eventId(), event.eventVersion());
-        outboxEventService.saveEvent("Booking", event.bookingReference(), event.eventType(), event.eventVersion(), event);
-        sendEvent(KafkaConfig.BOOKING_FAILED_TOPIC, event.bookingReference(), event.eventId(), event.eventType(), event);
+        UUID eventUuid = parseUuidSafely(event.eventId());
+        outboxEventService.saveEvent(eventUuid, "Booking", event.bookingReference(), event.eventType(), event.eventVersion(), event);
     }
 
-    private void sendEvent(String topic, String key, String eventId, String eventType, Object payload) {
+    private UUID parseUuidSafely(String id) {
+        if (id == null || id.isBlank()) {
+            return UUID.randomUUID();
+        }
         try {
-            ProducerRecord<String, Object> record = new ProducerRecord<>(topic, key, payload);
-            if (eventId != null) {
-                record.headers().add(new RecordHeader("eventId", eventId.getBytes(StandardCharsets.UTF_8)));
-            }
-            if (eventType != null) {
-                record.headers().add(new RecordHeader("eventType", eventType.getBytes(StandardCharsets.UTF_8)));
-            }
-
-            kafkaTemplate.send(record).whenComplete((result, ex) -> {
-                if (ex != null) {
-                    log.error("[KafkaPublisher] Failed to send event to Kafka topic: {} with key: {} eventId: {}",
-                            topic, key, eventId, ex);
-                } else {
-                    log.debug("[KafkaPublisher] Sent event to topic: {} partition: {} offset: {}",
-                            topic, result.getRecordMetadata().partition(), result.getRecordMetadata().offset());
-                }
-            });
-        } catch (Exception e) {
-            log.error("[KafkaPublisher] Synchronous error sending event to Kafka topic: {} with key: {}", topic, key, e);
+            return UUID.fromString(id);
+        } catch (IllegalArgumentException e) {
+            return UUID.randomUUID();
         }
     }
 }

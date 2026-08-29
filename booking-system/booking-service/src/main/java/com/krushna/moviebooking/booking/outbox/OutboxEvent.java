@@ -19,8 +19,13 @@ import java.util.UUID;
 @Builder
 public class OutboxEvent {
 
+    public static final String STATUS_PENDING = "PENDING";
+    public static final String STATUS_IN_PROGRESS = "IN_PROGRESS";
+    public static final String STATUS_PUBLISHED = "PUBLISHED";
+    public static final String STATUS_FAILED = "FAILED";
+    public static final String STATUS_DEAD_LETTER = "DEAD_LETTER";
+
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @Column(name = "aggregate_type", nullable = false, length = 50)
@@ -41,7 +46,7 @@ public class OutboxEvent {
 
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
-    private String status = "PENDING";
+    private String status = STATUS_PENDING;
 
     @Column(name = "retry_count", nullable = false)
     @Builder.Default
@@ -56,4 +61,17 @@ public class OutboxEvent {
 
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
+
+    @Column(name = "next_retry_at")
+    private Instant nextRetryAt;
+
+    @PrePersist
+    public void prePersist() {
+        if (this.id == null) {
+            this.id = UUID.randomUUID();
+        }
+        if (this.status == null) {
+            this.status = STATUS_PENDING;
+        }
+    }
 }

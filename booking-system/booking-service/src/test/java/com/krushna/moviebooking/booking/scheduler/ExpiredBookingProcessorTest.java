@@ -88,7 +88,7 @@ class ExpiredBookingProcessorTest {
 
         expiredBookingProcessor.processExpiredBooking(bookingId);
 
-        verify(seatLockService).releaseLocks(showId, List.of(seatId1, seatId2));
+        verify(seatLockService).releaseLocks(showId, List.of(seatId1, seatId2), userId);
         verify(bookingStateMachine).transition(sampleBooking, BookingStatus.EXPIRED);
         verify(bookingRepository).save(sampleBooking);
 
@@ -113,7 +113,7 @@ class ExpiredBookingProcessorTest {
 
         expiredBookingProcessor.processExpiredBooking(bookingId);
 
-        verify(seatLockService, never()).releaseLocks(any(), any());
+        verify(seatLockService, never()).releaseLocks(any(), any(), any(UUID.class));
         verify(bookingStateMachine, never()).transition(any(Booking.class), any(BookingStatus.class));
         verify(bookingRepository, never()).save(any());
         verify(bookingEventPublisher, never()).publishBookingExpired(any());
@@ -126,7 +126,7 @@ class ExpiredBookingProcessorTest {
 
         expiredBookingProcessor.processExpiredBooking(bookingId);
 
-        verify(seatLockService, never()).releaseLocks(any(), any());
+        verify(seatLockService, never()).releaseLocks(any(), any(), any(UUID.class));
         verify(bookingRepository, never()).save(any());
     }
 

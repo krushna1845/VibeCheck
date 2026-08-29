@@ -28,10 +28,44 @@ public interface SeatLockService {
     /**
      * Releases seat locks unconditionally from Redis for a show and list of seat IDs.
      *
+     * <p><b>WARNING:</b> This overload does NOT verify ownership. It is safe only for
+     * compensation paths in acquisition rollback (where we know the current JVM just
+     * acquired the lock moments ago with a known token). Do NOT call this from booking
+     * lifecycle transitions (confirm, cancel, expire) where another user may have
+     * acquired the same seats after the previous lock expired.
+     *
      * @param showId Show reference UUID
      * @param seatIds List of show seat UUIDs to release
      */
     void releaseLocks(UUID showId, List<UUID> seatIds);
+
+    /**
+     * Atomically releases seat locks for a show only if each lock's stored {@code lockToken}
+     * matches the provided token. Seats whose Redis lock is owned by a different token are
+     * left untouched and logged as warnings.
+     *
+     * <p>This is the <b>preferred</b> release method for booking lifecycle transitions
+     * (confirmation, cancellation, expiration) where the token was captured at acquisition time.
+     *
+     * @param showId Show reference UUID
+     * @param seatIds List of show seat UUIDs to release
+     * @param lockToken The ownership token returned by {@link #lockSeats(SeatLockRequest)}
+     */
+    void releaseLocksByToken(UUID showId, List<UUID> seatIds, String lockToken);
+
+    /**
+     * Atomically releases seat locks for a show only if each lock's stored {@code userId}
+     * matches the provided userId. Seats whose Redis lock is owned by a different user are
+     * left untouched and logged as warnings.
+     *
+     * <p>Use this overload when the original {@code lockToken} is not available (e.g.
+     * legacy call sites). Prefer {@link #releaseLocksByToken} wherever the token is known.
+     *
+     * @param showId Show reference UUID
+     * @param seatIds List of show seat UUIDs to release
+     * @param userId Requesting user UUID (must match the lock owner)
+     */
+    void releaseLocks(UUID showId, List<UUID> seatIds, UUID userId);
 
     /**
      * Atomically releases a single seat lock if owned by the specified user.

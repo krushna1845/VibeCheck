@@ -1,33 +1,23 @@
 package com.krushna.moviebooking.booking.event;
 
-import com.krushna.moviebooking.booking.config.KafkaConfig;
 import com.krushna.moviebooking.booking.outbox.OutboxEventService;
-import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.support.SendResult;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class KafkaBookingEventPublisherTest {
-
-    @Mock
-    private KafkaTemplate<String, Object> kafkaTemplate;
 
     @Mock
     private OutboxEventService outboxEventService;
@@ -36,16 +26,15 @@ class KafkaBookingEventPublisherTest {
 
     @BeforeEach
     void setUp() {
-        publisher = new KafkaBookingEventPublisher(kafkaTemplate, outboxEventService);
-
-        CompletableFuture<SendResult<String, Object>> future = CompletableFuture.completedFuture(null);
-        lenient().when(kafkaTemplate.send(any(ProducerRecord.class))).thenReturn(future);
+        publisher = new KafkaBookingEventPublisher(outboxEventService);
     }
 
     @Test
-    @DisplayName("publishBookingCreated should save outbox event and send message to Kafka")
+    @DisplayName("publishBookingCreated should save outbox event atomically in DB transaction")
     void testPublishBookingCreated() {
+        UUID eventUuid = UUID.randomUUID();
         BookingCreatedEvent event = BookingCreatedEvent.builder()
+                .eventId(eventUuid.toString())
                 .bookingId(UUID.randomUUID())
                 .bookingReference("BKG-001")
                 .userId(UUID.randomUUID())
@@ -58,21 +47,15 @@ class KafkaBookingEventPublisherTest {
 
         publisher.publishBookingCreated(event);
 
-        verify(outboxEventService).saveEvent(eq("Booking"), eq("BKG-001"), eq("BOOKING_CREATED"), eq(1), eq(event));
-
-        ArgumentCaptor<ProducerRecord<String, Object>> captor = ArgumentCaptor.forClass(ProducerRecord.class);
-        verify(kafkaTemplate).send(captor.capture());
-
-        ProducerRecord<String, Object> record = captor.getValue();
-        assertThat(record.topic()).isEqualTo(KafkaConfig.BOOKING_CREATED_TOPIC);
-        assertThat(record.key()).isEqualTo("BKG-001");
-        assertThat(record.value()).isEqualTo(event);
+        verify(outboxEventService).saveEvent(eq(eventUuid), eq("Booking"), eq("BKG-001"), eq("BOOKING_CREATED"), eq(1), eq(event));
     }
 
     @Test
-    @DisplayName("publishBookingConfirmed should save outbox event and send to Kafka")
+    @DisplayName("publishBookingConfirmed should save outbox event atomically in DB transaction")
     void testPublishBookingConfirmed() {
+        UUID eventUuid = UUID.randomUUID();
         BookingConfirmedEvent event = BookingConfirmedEvent.builder()
+                .eventId(eventUuid.toString())
                 .bookingId(UUID.randomUUID())
                 .bookingReference("BKG-002")
                 .userId(UUID.randomUUID())
@@ -86,17 +69,15 @@ class KafkaBookingEventPublisherTest {
 
         publisher.publishBookingConfirmed(event);
 
-        verify(outboxEventService).saveEvent(eq("Booking"), eq("BKG-002"), eq("BOOKING_CONFIRMED"), eq(1), eq(event));
-
-        ArgumentCaptor<ProducerRecord<String, Object>> captor = ArgumentCaptor.forClass(ProducerRecord.class);
-        verify(kafkaTemplate).send(captor.capture());
-        assertThat(captor.getValue().topic()).isEqualTo(KafkaConfig.BOOKING_CONFIRMED_TOPIC);
+        verify(outboxEventService).saveEvent(eq(eventUuid), eq("Booking"), eq("BKG-002"), eq("BOOKING_CONFIRMED"), eq(1), eq(event));
     }
 
     @Test
-    @DisplayName("publishBookingCancelled should save outbox event and send to Kafka")
+    @DisplayName("publishBookingCancelled should save outbox event atomically in DB transaction")
     void testPublishBookingCancelled() {
+        UUID eventUuid = UUID.randomUUID();
         BookingCancelledEvent event = BookingCancelledEvent.builder()
+                .eventId(eventUuid.toString())
                 .bookingId(UUID.randomUUID())
                 .bookingReference("BKG-003")
                 .userId(UUID.randomUUID())
@@ -108,13 +89,15 @@ class KafkaBookingEventPublisherTest {
 
         publisher.publishBookingCancelled(event);
 
-        verify(outboxEventService).saveEvent(eq("Booking"), eq("BKG-003"), eq("BOOKING_CANCELLED"), eq(1), eq(event));
+        verify(outboxEventService).saveEvent(eq(eventUuid), eq("Booking"), eq("BKG-003"), eq("BOOKING_CANCELLED"), eq(1), eq(event));
     }
 
     @Test
-    @DisplayName("publishBookingExpired should save outbox event and send to Kafka")
+    @DisplayName("publishBookingExpired should save outbox event atomically in DB transaction")
     void testPublishBookingExpired() {
+        UUID eventUuid = UUID.randomUUID();
         BookingExpiredEvent event = BookingExpiredEvent.builder()
+                .eventId(eventUuid.toString())
                 .bookingId(UUID.randomUUID())
                 .bookingReference("BKG-004")
                 .userId(UUID.randomUUID())
@@ -125,6 +108,26 @@ class KafkaBookingEventPublisherTest {
 
         publisher.publishBookingExpired(event);
 
-        verify(outboxEventService).saveEvent(eq("Booking"), eq("BKG-004"), eq("BOOKING_EXPIRED"), eq(1), eq(event));
+        verify(outboxEventService).saveEvent(eq(eventUuid), eq("Booking"), eq("BKG-004"), eq("BOOKING_EXPIRED"), eq(1), eq(event));
+    }
+
+    @Test
+    @DisplayName("publishBookingFailed should save outbox event atomically in DB transaction")
+    void testPublishBookingFailed() {
+        UUID eventUuid = UUID.randomUUID();
+        BookingFailedEvent event = BookingFailedEvent.builder()
+                .eventId(eventUuid.toString())
+                .bookingId(UUID.randomUUID())
+                .bookingReference("BKG-005")
+                .userId(UUID.randomUUID())
+                .showId(UUID.randomUUID())
+                .showSeatIds(List.of(UUID.randomUUID()))
+                .failureReason("Payment timeout")
+                .timestamp(Instant.now())
+                .build();
+
+        publisher.publishBookingFailed(event);
+
+        verify(outboxEventService).saveEvent(eq(eventUuid), eq("Booking"), eq("BKG-005"), eq("BOOKING_FAILED"), eq(1), eq(event));
     }
 }

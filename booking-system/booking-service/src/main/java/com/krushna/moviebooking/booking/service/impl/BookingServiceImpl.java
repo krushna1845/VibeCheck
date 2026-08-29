@@ -259,7 +259,10 @@ public class BookingServiceImpl implements BookingService {
                 .toList();
 
         showClient.updateShowSeatsStatus(booking.getShowId(), showSeatIds, "BOOKED");
-        seatLockService.releaseLocks(booking.getShowId(), showSeatIds);
+        // Owner-verified release: only deletes each lock if it is still owned by this booking's user.
+        // If another booking has already acquired the same seat (should not happen in correct flow but
+        // guards against delayed scheduler races), its lock is left intact.
+        seatLockService.releaseLocks(booking.getShowId(), showSeatIds, booking.getUserId());
 
         log.info("Booking reference {} confirmed successfully.", bookingReference);
 
@@ -315,7 +318,9 @@ public class BookingServiceImpl implements BookingService {
                 .toList();
 
         showClient.updateShowSeatsStatus(booking.getShowId(), showSeatIds, "AVAILABLE");
-        seatLockService.releaseLocks(booking.getShowId(), showSeatIds);
+        // Owner-verified release: stale cancellation requests cannot wipe a lock held by a
+        // concurrent new booking on the same seat.
+        seatLockService.releaseLocks(booking.getShowId(), showSeatIds, booking.getUserId());
 
         BookingCancelledEvent cancelledEvent = BookingCancelledEvent.builder()
                 .bookingId(booking.getId())
@@ -375,7 +380,9 @@ public class BookingServiceImpl implements BookingService {
                     .map(BookingSeat::getShowSeatId)
                     .toList();
 
-            seatLockService.releaseLocks(booking.getShowId(), showSeatIds);
+            // Owner-verified release: prevents background expiration sweeps from wiping
+            // seats that were re-acquired by another customer after the TTL elapsed.
+            seatLockService.releaseLocks(booking.getShowId(), showSeatIds, booking.getUserId());
 
             BookingExpiredEvent expiredEvent = BookingExpiredEvent.builder()
                     .bookingId(booking.getId())

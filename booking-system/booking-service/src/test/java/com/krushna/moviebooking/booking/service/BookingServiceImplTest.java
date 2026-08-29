@@ -226,7 +226,7 @@ class BookingServiceImplTest {
         assertThat(response.status()).isEqualTo("CONFIRMED");
         assertThat(booking.getStatus()).isEqualTo("CONFIRMED");
         verify(showClient).updateShowSeatsStatus(eq(showId), eq(List.of(showSeatId)), eq("BOOKED"));
-        verify(seatLockService).releaseLocks(eq(showId), eq(List.of(showSeatId)));
+        verify(seatLockService).releaseLocks(eq(showId), eq(List.of(showSeatId)), eq(userId));
         verify(bookingEventPublisher).publishBookingConfirmed(any());
 
         // Verify WebSocket BOOKING_CONFIRMED event
@@ -285,6 +285,7 @@ class BookingServiceImplTest {
         Booking booking = Booking.builder()
                 .id(bookingId)
                 .bookingReference(bookingRef)
+                .userId(userId)
                 .showId(showId)
                 .status("PENDING")
                 .bookingSeats(List.of(seat))
@@ -304,7 +305,7 @@ class BookingServiceImplTest {
         assertThat(response.status()).isEqualTo("CANCELLED");
         assertThat(booking.getStatus()).isEqualTo("CANCELLED");
         verify(showClient).updateShowSeatsStatus(eq(showId), eq(List.of(showSeatId)), eq("AVAILABLE"));
-        verify(seatLockService).releaseLocks(eq(showId), eq(List.of(showSeatId)));
+        verify(seatLockService).releaseLocks(eq(showId), eq(List.of(showSeatId)), eq(userId));
         verify(bookingEventPublisher).publishBookingCancelled(any());
 
         // Verify two WebSocket events: BOOKING_CANCELLED + SEAT_RELEASED
@@ -337,7 +338,7 @@ class BookingServiceImplTest {
         bookingService.expireBooking(bookingId);
 
         assertThat(booking.getStatus()).isEqualTo("EXPIRED");
-        verify(seatLockService).releaseLocks(eq(showId), eq(List.of(showSeatId)));
+        verify(seatLockService).releaseLocks(eq(showId), eq(List.of(showSeatId)), eq(userId));
         verify(bookingEventPublisher).publishBookingExpired(any());
 
         // Verify two WebSocket events: BOOKING_EXPIRED + SEAT_RELEASED

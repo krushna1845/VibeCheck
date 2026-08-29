@@ -19,18 +19,31 @@ public class RedisConfig {
     }
 
     /**
-     * Lua script to atomically release a seat lock ONLY if the stored value matches or contains the expected owner token/userId.
+     * Lua script to atomically release a seat lock ONLY if the stored lock token matches the expected token.
+     *
+     * <p>Ownership check order:
+     * <ol>
+     *   <li>Exact string equality: stored value == ARGV[1] (fast path, simple token stored as plain string)</li>
+     *   <li>JSON field extraction: stored JSON's {@code lockToken} field == ARGV[1] (normal SeatLock JSON path)</li>
+     * </ol>
      *
      * <p>KEYS[1]: Redis lock key (e.g. seat:{showId}:{seatId})
-     * <p>ARGV[1]: Expected owner identifier (e.g. userId string or lock token)
+     * <p>ARGV[1]: Lock ownership token (unique UUID generated at lock-acquisition time)
      * <p>Returns: 1 if deleted, 0 if lock not found or owned by someone else.
      */
     @Bean
     public RedisScript<Long> releaseLockScript() {
         String script = """
             local val = redis.call('get', KEYS[1])
-            if val then
-                if val == ARGV[1] or string.find(val, ARGV[1], 1, true) then
+            if not val then
+                return 0
+            end
+            if val == ARGV[1] then
+                return redis.call('del', KEYS[1])
+            end
+            local ok, decoded = pcall(cjson.decode, val)
+            if ok and decoded ~= nil and type(decoded) == 'table' then
+                if decoded['lockToken'] == ARGV[1] then
                     return redis.call('del', KEYS[1])
                 end
             end
@@ -40,10 +53,16 @@ public class RedisConfig {
     }
 
     /**
-     * Lua script to atomically renew TTL for a seat lock ONLY if the stored value matches or contains the expected owner token/userId.
+     * Lua script to atomically renew TTL for a seat lock ONLY if the stored lock token matches the expected token.
+     *
+     * <p>Ownership check order:
+     * <ol>
+     *   <li>Exact string equality: stored value == ARGV[1] (fast path)</li>
+     *   <li>JSON field extraction: stored JSON's {@code lockToken} field == ARGV[1] (normal path)</li>
+     * </ol>
      *
      * <p>KEYS[1]: Redis lock key (e.g. seat:{showId}:{seatId})
-     * <p>ARGV[1]: Expected owner identifier (e.g. userId string or lock token)
+     * <p>ARGV[1]: Lock ownership token (unique UUID generated at lock-acquisition time)
      * <p>ARGV[2]: New TTL in seconds
      * <p>Returns: 1 if extended, 0 if lock not found or owned by someone else.
      */
@@ -51,8 +70,15 @@ public class RedisConfig {
     public RedisScript<Long> renewLockScript() {
         String script = """
             local val = redis.call('get', KEYS[1])
-            if val then
-                if val == ARGV[1] or string.find(val, ARGV[1], 1, true) then
+            if not val then
+                return 0
+            end
+            if val == ARGV[1] then
+                return redis.call('expire', KEYS[1], tonumber(ARGV[2]))
+            end
+            local ok, decoded = pcall(cjson.decode, val)
+            if ok and decoded ~= nil and type(decoded) == 'table' then
+                if decoded['lockToken'] == ARGV[1] then
                     return redis.call('expire', KEYS[1], tonumber(ARGV[2]))
                 end
             end

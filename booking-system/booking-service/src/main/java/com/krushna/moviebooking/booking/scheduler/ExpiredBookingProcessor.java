@@ -78,10 +78,14 @@ public class ExpiredBookingProcessor {
                 .map(BookingSeat::getShowSeatId)
                 .toList();
 
-        // 1. Release Redis seat locks
+        // 1. Release Redis seat locks — owner-verified release only.
+        // If User A's booking expires at T and User B acquires the same seat at T+10ms,
+        // this call (running at T+50ms) will leave User B's lock intact because the stored
+        // userId in Redis no longer matches booking.getUserId() (which is User A's id).
         if (!showSeatIds.isEmpty()) {
-            log.debug("Releasing Redis seat locks for showId: {}, seatCount: {}", booking.getShowId(), showSeatIds.size());
-            seatLockService.releaseLocks(booking.getShowId(), showSeatIds);
+            log.debug("Releasing Redis seat locks for showId: {}, seatCount: {}, bookingUserId: {}",
+                    booking.getShowId(), showSeatIds.size(), booking.getUserId());
+            seatLockService.releaseLocks(booking.getShowId(), showSeatIds, booking.getUserId());
         }
 
         // 2. Transition status to EXPIRED using state machine

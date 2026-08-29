@@ -51,7 +51,7 @@ class OutboxRelaySchedulerTest {
     }
 
     @Test
-    @DisplayName("processOutboxEvents publishes pending outbox events to Kafka and marks as PUBLISHED")
+    @DisplayName("processOutboxEvents publishes claimed outbox events to Kafka and marks as PUBLISHED")
     void processOutboxEvents_Success() {
         OutboxEvent event = OutboxEvent.builder()
                 .id(UUID.randomUUID())
@@ -60,12 +60,12 @@ class OutboxRelaySchedulerTest {
                 .eventType("BOOKING_CREATED")
                 .eventVersion(1)
                 .payload("{\"bookingReference\":\"BKG-1001\"}")
-                .status("PENDING")
+                .status("IN_PROGRESS")
                 .retryCount(0)
                 .createdAt(Instant.now())
                 .build();
 
-        when(outboxEventService.fetchPendingOrRetryableEvents(5)).thenReturn(List.of(event));
+        when(outboxEventService.claimEventsForProcessing(anyInt(), anyInt())).thenReturn(List.of(event));
 
         RecordMetadata metadata = new RecordMetadata(new TopicPartition("booking-created-events", 0), 0, 0, 0, 0, 0);
         SendResult<String, Object> sendResult = new SendResult<>(null, metadata);
@@ -90,12 +90,12 @@ class OutboxRelaySchedulerTest {
                 .eventType("BOOKING_CONFIRMED")
                 .eventVersion(1)
                 .payload("{\"bookingReference\":\"BKG-1002\"}")
-                .status("PENDING")
+                .status("IN_PROGRESS")
                 .retryCount(0)
                 .createdAt(Instant.now())
                 .build();
 
-        when(outboxEventService.fetchPendingOrRetryableEvents(5)).thenReturn(List.of(event));
+        when(outboxEventService.claimEventsForProcessing(anyInt(), anyInt())).thenReturn(List.of(event));
 
         CompletableFuture<SendResult<String, Object>> failedFuture = new CompletableFuture<>();
         failedFuture.completeExceptionally(new RuntimeException("Kafka cluster unreachable"));
@@ -103,7 +103,7 @@ class OutboxRelaySchedulerTest {
 
         outboxRelayScheduler.processOutboxEvents();
 
-        verify(outboxEventService).markAsFailed(eq(event), anyString());
+        verify(outboxEventService).markAsFailed(eq(event), anyString(), eq(5));
         assertThat(meterRegistry.find("outbox.relay.failed").counter()).isNotNull();
         assertThat(meterRegistry.find("outbox.relay.failed").counter().count()).isEqualTo(1.0);
     }
@@ -118,16 +118,16 @@ class OutboxRelaySchedulerTest {
                 .eventType("UNKNOWN_EVENT_TYPE")
                 .eventVersion(1)
                 .payload("{}")
-                .status("PENDING")
+                .status("IN_PROGRESS")
                 .retryCount(0)
                 .createdAt(Instant.now())
                 .build();
 
-        when(outboxEventService.fetchPendingOrRetryableEvents(5)).thenReturn(List.of(event));
+        when(outboxEventService.claimEventsForProcessing(anyInt(), anyInt())).thenReturn(List.of(event));
 
         outboxRelayScheduler.processOutboxEvents();
 
         verify(kafkaTemplate, never()).send(any(ProducerRecord.class));
-        verify(outboxEventService).markAsFailed(eq(event), contains("Unknown eventType"));
+        verify(outboxEventService).markAsFailed(eq(event), contains("Unknown eventType"), eq(5));
     }
 }

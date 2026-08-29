@@ -77,30 +77,63 @@ class RedisSeatLockServiceImplTest {
     @Test
     @DisplayName("lockSeats rolls back acquired seats when a subsequent seat lock fails")
     void lockSeats_RollbackOnConflict() {
+        // Use deterministic UUIDs where seat1 sorts lexicographically before seat2,
+        // so after sorting, seat1 is acquired first, then seat2 fails, triggering rollback.
+        UUID seat1First = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID seat2Second = UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff");
+
         SeatLockRequest request = SeatLockRequest.builder()
                 .showId(showId)
-                .seatIds(List.of(seat1, seat2))
+                .seatIds(List.of(seat1First, seat2Second))
                 .userId(userId)
                 .ttlSeconds(300)
                 .build();
 
-        when(seatLockRepository.saveIfAbsent(argThat(lock -> lock != null && seat1.equals(lock.getSeatId())), eq(300L))).thenReturn(true);
-        when(seatLockRepository.saveIfAbsent(argThat(lock -> lock != null && seat2.equals(lock.getSeatId())), eq(300L))).thenReturn(false);
+        when(seatLockRepository.saveIfAbsent(argThat(lock -> lock != null && seat1First.equals(lock.getSeatId())), eq(300L))).thenReturn(true);
+        when(seatLockRepository.saveIfAbsent(argThat(lock -> lock != null && seat2Second.equals(lock.getSeatId())), eq(300L))).thenReturn(false);
+        when(seatLockRepository.deleteIfOwnedBy(any(), any(), anyString())).thenReturn(true);
 
         SeatLockResponse response = seatLockService.lockSeats(request);
 
         assertThat(response.success()).isFalse();
-        assertThat(response.failedSeatIds()).contains(seat2);
-        verify(seatLockRepository).deleteIfOwnedBy(showId, seat1, userId.toString());
+        assertThat(response.failedSeatIds()).contains(seat2Second);
+        // Rollback uses the lock token (not userId) for owner-verified atomic delete
+        verify(seatLockRepository).deleteIfOwnedBy(eq(showId), eq(seat1First), anyString());
     }
 
     @Test
-    @DisplayName("releaseLocks deletes all keys for target seats")
-    void releaseLocks_Success() {
+    @DisplayName("releaseLocks (unconditional) deletes all keys for target seats")
+    void releaseLocks_Unconditional_DeletesAllSeats() {
         seatLockService.releaseLocks(showId, List.of(seat1, seat2));
 
         verify(seatLockRepository).delete(showId, seat1);
         verify(seatLockRepository).delete(showId, seat2);
+    }
+
+    @Test
+    @DisplayName("releaseLocks(userId) delegates to deleteIfOwnedBy for each seat")
+    void releaseLocks_OwnerVerified_ByUserId() {
+        when(seatLockRepository.deleteIfOwnedBy(showId, seat1, userId.toString())).thenReturn(true);
+        when(seatLockRepository.deleteIfOwnedBy(showId, seat2, userId.toString())).thenReturn(true);
+
+        seatLockService.releaseLocks(showId, List.of(seat1, seat2), userId);
+
+        verify(seatLockRepository).deleteIfOwnedBy(showId, seat1, userId.toString());
+        verify(seatLockRepository).deleteIfOwnedBy(showId, seat2, userId.toString());
+        verify(seatLockRepository, never()).delete(any(), any());
+    }
+
+    @Test
+    @DisplayName("releaseLocks(userId) does NOT delete locks owned by a different user")
+    void releaseLocks_OwnerVerified_DoesNotDeleteOtherOwnersLock() {
+        // Lua script returns 0 (false) when owner mismatch
+        when(seatLockRepository.deleteIfOwnedBy(showId, seat1, userId.toString())).thenReturn(false);
+
+        seatLockService.releaseLocks(showId, List.of(seat1), userId);
+
+        verify(seatLockRepository).deleteIfOwnedBy(showId, seat1, userId.toString());
+        // Unconditional delete must never be called
+        verify(seatLockRepository, never()).delete(any(), any());
     }
 
     @Test

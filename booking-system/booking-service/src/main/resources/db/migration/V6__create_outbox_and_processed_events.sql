@@ -13,10 +13,12 @@ CREATE TABLE outbox_events (
     retry_count INT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     processed_at TIMESTAMPTZ NULL,
-    error_message TEXT NULL
+    error_message TEXT NULL,
+    next_retry_at TIMESTAMPTZ NULL
 );
 
 CREATE INDEX idx_outbox_events_status ON outbox_events(status, created_at) WHERE status = 'PENDING';
+CREATE INDEX idx_outbox_events_retry ON outbox_events(status, next_retry_at, retry_count);
 CREATE INDEX idx_outbox_events_aggregate ON outbox_events(aggregate_type, aggregate_id);
 
 -- 2. Table: processed_events (Consumer Idempotency Store)

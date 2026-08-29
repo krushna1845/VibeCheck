@@ -4,30 +4,23 @@ import com.krushna.moviebooking.booking.config.KafkaConfig;
 import com.krushna.moviebooking.booking.event.*;
 import com.krushna.moviebooking.booking.idempotency.IdempotencyService;
 import com.krushna.moviebooking.booking.outbox.OutboxEventService;
-import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.support.SendResult;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class BookingEventKafkaIntegrationTest {
-
-    @Mock
-    private KafkaTemplate<String, Object> kafkaTemplate;
 
     @Mock
     private OutboxEventService outboxEventService;
@@ -38,13 +31,11 @@ class BookingEventKafkaIntegrationTest {
     @Test
     @DisplayName("End-to-End Publishing and Idempotent Consumption Flow Integration")
     void testEndToEndPublishAndConsumeFlow() {
-        KafkaBookingEventPublisher publisher = new KafkaBookingEventPublisher(kafkaTemplate, outboxEventService);
+        KafkaBookingEventPublisher publisher = new KafkaBookingEventPublisher(outboxEventService);
         BookingEventConsumer consumer = new BookingEventConsumer(idempotencyService);
 
-        CompletableFuture<SendResult<String, Object>> future = CompletableFuture.completedFuture(null);
-        when(kafkaTemplate.send(any(ProducerRecord.class))).thenReturn(future);
-
-        String eventId = UUID.randomUUID().toString();
+        UUID eventUuid = UUID.randomUUID();
+        String eventId = eventUuid.toString();
         BookingCreatedEvent createdEvent = BookingCreatedEvent.builder()
                 .eventId(eventId)
                 .bookingId(UUID.randomUUID())
@@ -57,11 +48,10 @@ class BookingEventKafkaIntegrationTest {
                 .timestamp(Instant.now())
                 .build();
 
-        // Step 1: Publish Event
+        // Step 1: Business Transaction writes Outbox record atomically (no direct Kafka call)
         publisher.publishBookingCreated(createdEvent);
 
-        verify(outboxEventService).saveEvent(eq("Booking"), eq("BKG-INT-001"), eq("BOOKING_CREATED"), eq(1), eq(createdEvent));
-        verify(kafkaTemplate).send(any(ProducerRecord.class));
+        verify(outboxEventService).saveEvent(eq(eventUuid), eq("Booking"), eq("BKG-INT-001"), eq("BOOKING_CREATED"), eq(1), eq(createdEvent));
 
         // Step 2: First Consumption (Not Processed)
         when(idempotencyService.isEventProcessed(eventId)).thenReturn(false);

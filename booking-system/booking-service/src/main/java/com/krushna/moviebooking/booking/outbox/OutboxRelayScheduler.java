@@ -23,16 +23,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Production-grade Outbox Relay Scheduler.
  *
- * <p>Periodically queries pending and retryable outbox events from the outbox_events table
- * and publishes them to Kafka to ensure transactional outbox eventual delivery.
+ * <p>Periodically claims pending and retryable outbox events from the outbox_events table
+ * using SELECT FOR UPDATE SKIP LOCKED and publishes them to Kafka to ensure transactional
+ * outbox eventual delivery.
  *
  * <p>Key Guarantees:
- * 1. Non-blocking DB transactions: Fetching events, Kafka publishing, and status updating are executed
- *    in separate small transactions to ensure database connection pools are not held during network I/O to Kafka.
- * 2. Idempotent & Isolated processing: Each event in the batch is processed independently in its own try/catch block.
- *    Failure on one event will not abort remaining events in the batch.
- * 3. Graceful recovery: Events remain in PENDING/FAILED state if Kafka or application crashes, and will be re-attempted
- *    on subsequent runs up to maxRetries.
+ * 1. Non-blocking DB transactions: Claiming events, Kafka publishing, and status updating are executed
+ *    in separate small transactions so database connection pools are never held during network I/O to Kafka.
+ * 2. Multi-instance concurrency: Uses SELECT FOR UPDATE SKIP LOCKED and atomic IN_PROGRESS status transitions
+ *    with lease timeouts so multiple replicas can poll concurrently without duplicate dispatches.
+ * 3. Exponential backoff: Failed dispatches calculate progressive retry delays before next polling attempt.
+ * 4. Graceful recovery: Stranded events automatically recover upon lease expiry.
  */
 @Slf4j
 @Component
@@ -46,6 +47,9 @@ public class OutboxRelayScheduler {
 
     @Value("${booking.outbox.max-retries:5}")
     private int maxRetries = 5;
+
+    @Value("${booking.outbox.batch-size:50}")
+    private int batchSize = 50;
 
     @Value("${booking.outbox.publish-timeout-seconds:5}")
     private long publishTimeoutSeconds = 5;
@@ -69,14 +73,14 @@ public class OutboxRelayScheduler {
 
         Timer.Sample sample = Timer.start(meterRegistry);
         try {
-            List<OutboxEvent> pendingEvents = outboxEventService.fetchPendingOrRetryableEvents(maxRetries);
-            if (pendingEvents == null || pendingEvents.isEmpty()) {
+            List<OutboxEvent> claimedEvents = outboxEventService.claimEventsForProcessing(maxRetries, batchSize);
+            if (claimedEvents == null || claimedEvents.isEmpty()) {
                 return;
             }
 
-            log.info("[OutboxRelay] Found {} pending/retryable outbox events to publish", pendingEvents.size());
+            log.info("[OutboxRelay] Claimed {} pending/retryable outbox events to publish", claimedEvents.size());
 
-            for (OutboxEvent event : pendingEvents) {
+            for (OutboxEvent event : claimedEvents) {
                 processSingleEvent(event);
             }
         } catch (Exception e) {
@@ -94,7 +98,7 @@ public class OutboxRelayScheduler {
         if (topic == null) {
             log.error("[OutboxRelay] Unknown eventType '{}' for outbox event id={}. Marking as failed.",
                     event.getEventType(), event.getId());
-            outboxEventService.markAsFailed(event, "Unknown eventType: " + event.getEventType());
+            outboxEventService.markAsFailed(event, "Unknown eventType: " + event.getEventType(), maxRetries);
             recordFailureMetric(event.getEventType());
             return;
         }
@@ -128,7 +132,7 @@ public class OutboxRelayScheduler {
             log.warn("[OutboxRelay] Failed to publish outbox event id={} aggregateId={} to topic={}. RetryCount={}. Error: {}",
                     event.getId(), event.getAggregateId(), topic, event.getRetryCount(), e.getMessage());
 
-            outboxEventService.markAsFailed(event, e.getMessage());
+            outboxEventService.markAsFailed(event, e.getMessage(), maxRetries);
             recordFailureMetric(event.getEventType());
         }
     }
