@@ -110,4 +110,41 @@ public interface ShowService {
      * @return list of ShowSeatResponse DTOs
      */
     List<ShowSeatResponse> getShowSeats(UUID showId);
+
+    /**
+     * Retrieves specific seat records by IDs for a show.
+     *
+     * @param showId  the Show UUID
+     * @param seatIds the ShowSeat UUIDs
+     * @return list of ShowSeatResponse DTOs
+     */
+    List<ShowSeatResponse> getShowSeatsByIds(UUID showId, List<UUID> seatIds);
+
+    /**
+     * Confirms seats for a booking transactionally with pessimistic locking.
+     * Validates show state, verifies seat existence, checks all seats are available,
+     * and sets status to BOOKED.
+     *
+     * @param showId  the Show UUID
+     * @param request confirmation payload with booking reference and seat IDs
+     * @return SeatConfirmationResponse
+     */
+    com.krushna.moviebooking.show.dto.SeatConfirmationResponse confirmSeats(
+            UUID showId, com.krushna.moviebooking.show.dto.SeatConfirmationRequest request);
+
+    /**
+     * Releases seats back to AVAILABLE state.
+     *
+     * @param showId  the Show UUID
+     * @param request release payload
+     */
+    void releaseSeats(UUID showId, com.krushna.moviebooking.show.dto.SeatReleaseRequest request);
+
+    /**
+     * Updates status of seats for a show (e.g. BOOKED, AVAILABLE).
+     *
+     * @param showId  the Show UUID
+     * @param request update payload
+     */
+    void updateSeatsStatus(UUID showId, com.krushna.moviebooking.show.dto.SeatStatusUpdateRequest request);
 }

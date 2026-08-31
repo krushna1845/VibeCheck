@@ -267,4 +267,85 @@ class ShowServiceImplTest {
 
         assertThat(shows).hasSize(1);
     }
+
+    @Test
+    @DisplayName("confirmSeats successfully locks and updates seats to BOOKED")
+    void confirmSeats_Success() {
+        UUID seatId1 = UUID.randomUUID();
+        UUID seatId2 = UUID.randomUUID();
+        Show show = Show.builder().id(showId).startTime(futureStartTime).status("SCHEDULED").build();
+
+        ShowSeat ss1 = ShowSeat.builder().id(seatId1).show(show).seatId(UUID.randomUUID()).price(new BigDecimal("250.00")).status("AVAILABLE").build();
+        ShowSeat ss2 = ShowSeat.builder().id(seatId2).show(show).seatId(UUID.randomUUID()).price(new BigDecimal("250.00")).status("AVAILABLE").build();
+
+        when(showRepository.findById(showId)).thenReturn(Optional.of(show));
+        when(showSeatRepository.findByShowIdAndIdInWithLock(eq(showId), eq(List.of(seatId1, seatId2))))
+                .thenReturn(List.of(ss1, ss2));
+
+        var request = new com.krushna.moviebooking.show.dto.SeatConfirmationRequest("BK12345", List.of(seatId1, seatId2));
+        var response = showService.confirmSeats(showId, request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.status()).isEqualTo("BOOKED");
+        assertThat(response.count()).isEqualTo(2);
+        assertThat(ss1.getStatus()).isEqualTo("BOOKED");
+        assertThat(ss2.getStatus()).isEqualTo("BOOKED");
+        verify(showSeatRepository).saveAll(List.of(ss1, ss2));
+    }
+
+    @Test
+    @DisplayName("confirmSeats throws ShowSeatNotFoundException when one or more seats do not exist")
+    void confirmSeats_MissingSeat_ThrowsShowSeatNotFoundException() {
+        UUID seatId1 = UUID.randomUUID();
+        UUID seatId2 = UUID.randomUUID();
+        Show show = Show.builder().id(showId).startTime(futureStartTime).status("SCHEDULED").build();
+
+        ShowSeat ss1 = ShowSeat.builder().id(seatId1).show(show).seatId(UUID.randomUUID()).price(new BigDecimal("250.00")).status("AVAILABLE").build();
+
+        when(showRepository.findById(showId)).thenReturn(Optional.of(show));
+        when(showSeatRepository.findByShowIdAndIdInWithLock(eq(showId), eq(List.of(seatId1, seatId2))))
+                .thenReturn(List.of(ss1));
+
+        var request = new com.krushna.moviebooking.show.dto.SeatConfirmationRequest("BK12345", List.of(seatId1, seatId2));
+
+        assertThatThrownBy(() -> showService.confirmSeats(showId, request))
+                .isInstanceOf(ShowSeatNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("confirmSeats throws SeatAlreadyBookedException when seat is not AVAILABLE")
+    void confirmSeats_AlreadyBooked_ThrowsSeatAlreadyBookedException() {
+        UUID seatId1 = UUID.randomUUID();
+        Show show = Show.builder().id(showId).startTime(futureStartTime).status("SCHEDULED").build();
+
+        ShowSeat ss1 = ShowSeat.builder().id(seatId1).show(show).seatId(UUID.randomUUID()).price(new BigDecimal("250.00")).status("BOOKED").build();
+
+        when(showRepository.findById(showId)).thenReturn(Optional.of(show));
+        when(showSeatRepository.findByShowIdAndIdInWithLock(eq(showId), eq(List.of(seatId1))))
+                .thenReturn(List.of(ss1));
+
+        var request = new com.krushna.moviebooking.show.dto.SeatConfirmationRequest("BK12345", List.of(seatId1));
+
+        assertThatThrownBy(() -> showService.confirmSeats(showId, request))
+                .isInstanceOf(SeatAlreadyBookedException.class);
+    }
+
+    @Test
+    @DisplayName("releaseSeats updates seats status back to AVAILABLE")
+    void releaseSeats_Success() {
+        UUID seatId1 = UUID.randomUUID();
+        Show show = Show.builder().id(showId).startTime(futureStartTime).status("SCHEDULED").build();
+
+        ShowSeat ss1 = ShowSeat.builder().id(seatId1).show(show).seatId(UUID.randomUUID()).price(new BigDecimal("250.00")).status("BOOKED").build();
+
+        when(showRepository.findById(showId)).thenReturn(Optional.of(show));
+        when(showSeatRepository.findByShowIdAndIdIn(eq(showId), eq(List.of(seatId1))))
+                .thenReturn(List.of(ss1));
+
+        var request = new com.krushna.moviebooking.show.dto.SeatReleaseRequest("BK12345", List.of(seatId1));
+        showService.releaseSeats(showId, request);
+
+        assertThat(ss1.getStatus()).isEqualTo("AVAILABLE");
+        verify(showSeatRepository).saveAll(List.of(ss1));
+    }
 }

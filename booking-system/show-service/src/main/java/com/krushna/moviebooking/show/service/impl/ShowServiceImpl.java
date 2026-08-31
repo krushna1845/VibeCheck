@@ -261,6 +261,133 @@ public class ShowServiceImpl implements ShowService {
         return showSeatMapper.toResponseList(seats);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<ShowSeatResponse> getShowSeatsByIds(UUID showId, List<UUID> seatIds) {
+        log.debug("Fetching seats by IDs for showId: {}, seatIds: {}", showId, seatIds);
+        findActiveShowOrThrow(showId);
+        if (seatIds == null || seatIds.isEmpty()) {
+            return List.of();
+        }
+        List<ShowSeat> seats = showSeatRepository.findByShowIdAndIdIn(showId, seatIds);
+        return showSeatMapper.toResponseList(seats);
+    }
+
+    @Override
+    @Transactional
+    @org.springframework.cache.annotation.Caching(evict = {
+            @org.springframework.cache.annotation.CacheEvict(value = com.krushna.moviebooking.show.config.RedisCacheConfig.SHOWS_CACHE, key = "#showId"),
+            @org.springframework.cache.annotation.CacheEvict(value = com.krushna.moviebooking.show.config.RedisCacheConfig.SHOW_SEATS_CACHE, key = "#showId")
+    })
+    public com.krushna.moviebooking.show.dto.SeatConfirmationResponse confirmSeats(
+            UUID showId, com.krushna.moviebooking.show.dto.SeatConfirmationRequest request) {
+        log.info("Confirming seats for showId: {}, bookingReference: {}, seatIds: {}",
+                showId, request.bookingReference(), request.showSeatIds());
+
+        Show show = findActiveShowOrThrow(showId);
+        ensureNotCancelled(show);
+
+        List<UUID> requestedSeatIds = request.showSeatIds();
+        if (requestedSeatIds == null || requestedSeatIds.isEmpty()) {
+            throw new IllegalArgumentException("Requested seat IDs must not be empty");
+        }
+
+        // Pessimistic lock on requested show seats
+        List<ShowSeat> lockedSeats = showSeatRepository.findByShowIdAndIdInWithLock(showId, requestedSeatIds);
+
+        // Validate existence of all requested seats
+        if (lockedSeats.size() != requestedSeatIds.size()) {
+            java.util.Set<UUID> foundIds = lockedSeats.stream()
+                    .map(ShowSeat::getId)
+                    .collect(java.util.stream.Collectors.toSet());
+            List<UUID> missingIds = requestedSeatIds.stream()
+                    .filter(id -> !foundIds.contains(id))
+                    .toList();
+            log.warn("Missing seats for showId {}: {}", showId, missingIds);
+            throw new ShowSeatNotFoundException(showId, missingIds);
+        }
+
+        // Validate all seats are available (prevent double booking)
+        List<UUID> unavailableSeatIds = lockedSeats.stream()
+                .filter(seat -> !"AVAILABLE".equalsIgnoreCase(seat.getStatus()))
+                .map(ShowSeat::getId)
+                .toList();
+
+        if (!unavailableSeatIds.isEmpty()) {
+            log.warn("Seats already booked or unavailable for showId {}: {}", showId, unavailableSeatIds);
+            throw new SeatAlreadyBookedException(showId, unavailableSeatIds);
+        }
+
+        // Update to BOOKED
+        for (ShowSeat seat : lockedSeats) {
+            seat.setStatus("BOOKED");
+            seat.setLockExpiration(null);
+        }
+
+        showSeatRepository.saveAll(lockedSeats);
+        log.info("Successfully confirmed {} seats for showId: {}, bookingReference: {}",
+                lockedSeats.size(), showId, request.bookingReference());
+
+        return com.krushna.moviebooking.show.dto.SeatConfirmationResponse.builder()
+                .showId(showId)
+                .bookingReference(request.bookingReference())
+                .confirmedSeatIds(requestedSeatIds)
+                .status("BOOKED")
+                .count(lockedSeats.size())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    @org.springframework.cache.annotation.Caching(evict = {
+            @org.springframework.cache.annotation.CacheEvict(value = com.krushna.moviebooking.show.config.RedisCacheConfig.SHOWS_CACHE, key = "#showId"),
+            @org.springframework.cache.annotation.CacheEvict(value = com.krushna.moviebooking.show.config.RedisCacheConfig.SHOW_SEATS_CACHE, key = "#showId")
+    })
+    public void releaseSeats(UUID showId, com.krushna.moviebooking.show.dto.SeatReleaseRequest request) {
+        log.info("Releasing seats for showId: {}, bookingReference: {}, seatIds: {}",
+                showId, request.bookingReference(), request.showSeatIds());
+
+        findActiveShowOrThrow(showId);
+        List<UUID> requestedSeatIds = request.showSeatIds();
+        if (requestedSeatIds == null || requestedSeatIds.isEmpty()) {
+            return;
+        }
+
+        List<ShowSeat> seats = showSeatRepository.findByShowIdAndIdIn(showId, requestedSeatIds);
+        for (ShowSeat seat : seats) {
+            seat.setStatus("AVAILABLE");
+            seat.setLockExpiration(null);
+        }
+        showSeatRepository.saveAll(seats);
+        log.info("Successfully released {} seats for showId: {}", seats.size(), showId);
+    }
+
+    @Override
+    @Transactional
+    @org.springframework.cache.annotation.Caching(evict = {
+            @org.springframework.cache.annotation.CacheEvict(value = com.krushna.moviebooking.show.config.RedisCacheConfig.SHOWS_CACHE, key = "#showId"),
+            @org.springframework.cache.annotation.CacheEvict(value = com.krushna.moviebooking.show.config.RedisCacheConfig.SHOW_SEATS_CACHE, key = "#showId")
+    })
+    public void updateSeatsStatus(UUID showId, com.krushna.moviebooking.show.dto.SeatStatusUpdateRequest request) {
+        log.info("Updating seats status for showId: {}, status: {}, seatIds: {}",
+                showId, request.status(), request.showSeatIds());
+
+        if ("BOOKED".equalsIgnoreCase(request.status())) {
+            confirmSeats(showId, new com.krushna.moviebooking.show.dto.SeatConfirmationRequest(
+                    request.bookingReference(), request.showSeatIds()));
+        } else if ("AVAILABLE".equalsIgnoreCase(request.status())) {
+            releaseSeats(showId, new com.krushna.moviebooking.show.dto.SeatReleaseRequest(
+                    request.bookingReference(), request.showSeatIds()));
+        } else {
+            findActiveShowOrThrow(showId);
+            List<ShowSeat> seats = showSeatRepository.findByShowIdAndIdIn(showId, request.showSeatIds());
+            for (ShowSeat seat : seats) {
+                seat.setStatus(request.status().trim().toUpperCase());
+            }
+            showSeatRepository.saveAll(seats);
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Private Helpers & Validations
     // -------------------------------------------------------------------------

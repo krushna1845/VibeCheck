@@ -1,6 +1,7 @@
 package com.krushna.moviebooking.booking.client;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -9,11 +10,12 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Primary component implementation of {@link ShowClient}.
- * Connects to Show Service (or simulates inter-service call with in-memory seat catalog state).
+ * Test mock component implementation of {@link ShowClient}.
+ * Only active under the "test-mock" profile.
  */
 @Slf4j
 @Component
+@Profile("test-mock")
 public class DefaultShowClient implements ShowClient {
 
     private final Map<UUID, List<ShowSeatDto>> showSeatCatalog = new ConcurrentHashMap<>();

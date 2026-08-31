@@ -78,8 +78,45 @@ public class ShowController {
 
     @Operation(summary = "Get show seats with availability and prices")
     @GetMapping("/{showId}/seats")
-    public ResponseEntity<List<ShowSeatResponse>> getShowSeats(@PathVariable UUID showId) {
+    public ResponseEntity<List<ShowSeatResponse>> getShowSeats(
+            @PathVariable UUID showId,
+            @RequestParam(required = false) List<UUID> seatIds) {
+        if (seatIds != null && !seatIds.isEmpty()) {
+            return ResponseEntity.ok(showService.getShowSeatsByIds(showId, seatIds));
+        }
         return ResponseEntity.ok(showService.getShowSeats(showId));
+    }
+
+    @Operation(summary = "Confirm show seats for booking")
+    @PostMapping("/{showId}/seats/confirm")
+    public ResponseEntity<com.krushna.moviebooking.show.dto.SeatConfirmationResponse> confirmSeats(
+            @PathVariable UUID showId,
+            @Valid @RequestBody com.krushna.moviebooking.show.dto.SeatConfirmationRequest request) {
+        log.info("REST POST /api/v1/shows/{}/seats/confirm ref={} count={}",
+                showId, request.bookingReference(), request.showSeatIds().size());
+        return ResponseEntity.ok(showService.confirmSeats(showId, request));
+    }
+
+    @Operation(summary = "Release show seats back to available")
+    @PostMapping("/{showId}/seats/release")
+    public ResponseEntity<Void> releaseSeats(
+            @PathVariable UUID showId,
+            @Valid @RequestBody com.krushna.moviebooking.show.dto.SeatReleaseRequest request) {
+        log.info("REST POST /api/v1/shows/{}/seats/release ref={} count={}",
+                showId, request.bookingReference(), request.showSeatIds().size());
+        showService.releaseSeats(showId, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "Update show seats status")
+    @PutMapping("/{showId}/seats/status")
+    public ResponseEntity<Void> updateSeatsStatus(
+            @PathVariable UUID showId,
+            @Valid @RequestBody com.krushna.moviebooking.show.dto.SeatStatusUpdateRequest request) {
+        log.info("REST PUT /api/v1/shows/{}/seats/status status={} count={}",
+                showId, request.status(), request.showSeatIds().size());
+        showService.updateSeatsStatus(showId, request);
+        return ResponseEntity.ok().build();
     }
 
     @Operation(summary = "Update show schedule")

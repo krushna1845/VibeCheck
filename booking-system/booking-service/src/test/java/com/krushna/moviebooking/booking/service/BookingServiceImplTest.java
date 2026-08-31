@@ -279,7 +279,74 @@ class BookingServiceImplTest {
     }
 
     @Test
-    @DisplayName("cancelBooking successfully cancels booking and broadcasts BOOKING_CANCELLED + SEAT_RELEASED WebSocket events")
+    @DisplayName("confirmBooking does NOT mark booking CONFIRMED when show-service fails to update seats")
+    void confirmBooking_ShowServiceUnavailable_BookingRemainsUnconfirmed() {
+        BookingSeat bookingSeat = BookingSeat.builder()
+                .showSeatId(showSeatId)
+                .seatNumber("A1")
+                .price(new BigDecimal("200.00"))
+                .build();
+
+        Booking booking = Booking.builder()
+                .id(bookingId)
+                .bookingReference(bookingRef)
+                .userId(userId)
+                .showId(showId)
+                .status("PENDING")
+                .expiresAt(Instant.now().plusSeconds(300))
+                .totalAmount(new BigDecimal("266.00"))
+                .bookingSeats(List.of(bookingSeat))
+                .build();
+
+        when(bookingRepository.findByBookingReference(bookingRef)).thenReturn(Optional.of(booking));
+        doThrow(new ShowServiceUnavailableException("show-service unreachable"))
+                .when(showClient).updateShowSeatsStatus(eq(showId), eq(List.of(showSeatId)), eq("BOOKED"));
+
+        assertThatThrownBy(() -> bookingService.confirmBooking(bookingRef, "PAY-123"))
+                .isInstanceOf(ShowServiceUnavailableException.class);
+
+        // Booking must NOT have been marked CONFIRMED
+        assertThat(booking.getStatus()).isEqualTo("PENDING");
+        // Downstream events must NOT have been published
+        verifyNoInteractions(bookingEventPublisher);
+        verifyNoInteractions(seatAvailabilityPublisher);
+    }
+
+    @Test
+    @DisplayName("confirmBooking throws SeatUnavailableException when show-service reports seat already booked (409)")
+    void confirmBooking_SeatAlreadyBooked_ThrowsSeatUnavailableException() {
+        BookingSeat bookingSeat = BookingSeat.builder()
+                .showSeatId(showSeatId)
+                .seatNumber("A1")
+                .price(new BigDecimal("200.00"))
+                .build();
+
+        Booking booking = Booking.builder()
+                .id(bookingId)
+                .bookingReference(bookingRef)
+                .userId(userId)
+                .showId(showId)
+                .status("PENDING")
+                .expiresAt(Instant.now().plusSeconds(300))
+                .totalAmount(new BigDecimal("266.00"))
+                .bookingSeats(List.of(bookingSeat))
+                .build();
+
+        when(bookingRepository.findByBookingReference(bookingRef)).thenReturn(Optional.of(booking));
+        doThrow(new SeatUnavailableException(showId, List.of(showSeatId)))
+                .when(showClient).updateShowSeatsStatus(eq(showId), eq(List.of(showSeatId)), eq("BOOKED"));
+
+        assertThatThrownBy(() -> bookingService.confirmBooking(bookingRef, "PAY-123"))
+                .isInstanceOf(SeatUnavailableException.class);
+
+        // Booking must NOT have transitioned to CONFIRMED
+        assertThat(booking.getStatus()).isEqualTo("PENDING");
+        verifyNoInteractions(bookingEventPublisher);
+        verifyNoInteractions(seatAvailabilityPublisher);
+    }
+
+    @Test
+    @DisplayName("cancelBooking releases seats in show-service via showClient when booking is PENDING — broadcasts BOOKING_CANCELLED + SEAT_RELEASED WebSocket events")
     void cancelBooking_Success() {
         BookingSeat seat = BookingSeat.builder().showSeatId(showSeatId).build();
         Booking booking = Booking.builder()

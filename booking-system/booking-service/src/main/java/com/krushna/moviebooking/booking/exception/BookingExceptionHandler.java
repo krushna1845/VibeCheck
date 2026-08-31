@@ -60,6 +60,12 @@ public class BookingExceptionHandler {
         return createProblemDetail(HttpStatus.PAYMENT_REQUIRED, "payment-failed", "Payment Failed", ex.getMessage(), request);
     }
 
+    @ExceptionHandler(ShowServiceUnavailableException.class)
+    public ProblemDetail handleShowServiceUnavailable(ShowServiceUnavailableException ex, HttpServletRequest request) {
+        log.error("Show service unavailable: {}", ex.getMessage());
+        return createProblemDetail(HttpStatus.SERVICE_UNAVAILABLE, "show-service-unavailable", "Show Service Unavailable", ex.getMessage(), request);
+    }
+
     @ExceptionHandler(InvalidBookingRequestException.class)
     public ProblemDetail handleInvalidRequest(InvalidBookingRequestException ex, HttpServletRequest request) {
         log.warn("Invalid booking request: {}", ex.getMessage());

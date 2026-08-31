@@ -248,8 +248,6 @@ public class BookingServiceImpl implements BookingService {
             throw new BookingAlreadyCancelledException(bookingReference);
         }
 
-        booking.setStatus("CONFIRMED");
-
         List<UUID> showSeatIds = booking.getBookingSeats().stream()
                 .map(BookingSeat::getShowSeatId)
                 .toList();
@@ -258,11 +256,16 @@ public class BookingServiceImpl implements BookingService {
                 .map(BookingSeat::getSeatNumber)
                 .toList();
 
+        // Call show-service FIRST — if it fails the exception propagates and the
+        // @Transactional rollback leaves booking in PENDING (not CONFIRMED).
         showClient.updateShowSeatsStatus(booking.getShowId(), showSeatIds, "BOOKED");
+
+        // Only mutate status once show-service has acknowledged the seat update.
+        booking.setStatus("CONFIRMED");
+
         // Owner-verified release: only deletes each lock if it is still owned by this booking's user.
-        // If another booking has already acquired the same seat (should not happen in correct flow but
-        // guards against delayed scheduler races), its lock is left intact.
         seatLockService.releaseLocks(booking.getShowId(), showSeatIds, booking.getUserId());
+
 
         log.info("Booking reference {} confirmed successfully.", bookingReference);
 

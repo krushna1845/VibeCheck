@@ -17,16 +17,16 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler({ShowNotFoundException.class, MovieNotFoundException.class, ScreenNotFoundException.class})
+    @ExceptionHandler({ShowNotFoundException.class, MovieNotFoundException.class, ScreenNotFoundException.class, ShowSeatNotFoundException.class})
     public ProblemDetail handleNotFound(RuntimeException ex) {
         log.warn("Resource not found: {}", ex.getMessage());
         return problem(HttpStatus.NOT_FOUND, "Resource Not Found", ex.getMessage(), "resource-not-found");
     }
 
-    @ExceptionHandler(ShowConflictException.class)
-    public ProblemDetail handleConflict(ShowConflictException ex) {
-        log.warn("Show conflict: {}", ex.getMessage());
-        return problem(HttpStatus.CONFLICT, "Show Schedule Conflict", ex.getMessage(), "show-conflict");
+    @ExceptionHandler({ShowConflictException.class, SeatAlreadyBookedException.class})
+    public ProblemDetail handleConflict(RuntimeException ex) {
+        log.warn("Conflict: {}", ex.getMessage());
+        return problem(HttpStatus.CONFLICT, "Resource Conflict", ex.getMessage(), "resource-conflict");
     }
 
     @ExceptionHandler({InvalidShowTimeException.class, ShowAlreadyCancelledException.class, ShowAlreadyStartedException.class, IllegalArgumentException.class})

@@ -22,8 +22,8 @@
         <module name="common" />
         <module name="gateway-service" />
         <module name="booking-service" />
-        <module name="theatre-service" />
         <module name="movie-service" />
+        <module name="theatre-service" />
         <module name="notification-service" />
       </profile>
     </annotationProcessing>
