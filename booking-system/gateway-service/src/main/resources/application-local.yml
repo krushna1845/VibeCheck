@@ -23,6 +23,7 @@ services:
   show-url: http://show-service:8083
   booking-url: http://booking-service:8084
   payment-url: http://payment-service:8085
+  notification-url: http://notification-service:8086
 
 # CORS Configuration
 cors:
@@ -63,6 +64,8 @@ resilience4j:
         baseConfig: default
       paymentService:
         baseConfig: default
+      notificationService:
+        baseConfig: default
 
   retry:
     configs:
@@ -84,6 +87,8 @@ resilience4j:
         baseConfig: default
       paymentService:
         baseConfig: default
+      notificationService:
+        baseConfig: default
 
   timelimiter:
     configs:
@@ -103,6 +108,8 @@ resilience4j:
         baseConfig: default
       paymentService:
         baseConfig: default
+      notificationService:
+        baseConfig: default
 
 management:
   endpoints:
@@ -111,7 +118,7 @@ management:
         include: health,info,metrics,prometheus,circuitbreakers
   endpoint:
     health:
-      show-details: always
+      show-details: when-authorized
   health:
     circuitbreakers:
       enabled: true

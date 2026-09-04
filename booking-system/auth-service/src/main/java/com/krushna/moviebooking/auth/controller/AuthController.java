@@ -84,7 +84,7 @@ public class AuthController {
                     content = @Content(schema = @Schema(implementation = UserResponse.class))),
             @ApiResponse(responseCode = "404", description = "User not found")
     })
-    @GetMapping("/user/{id}")
+    @GetMapping({"/user/{id}", "/users/{id}"})
     public ResponseEntity<UserResponse> getUserById(
             @Parameter(description = "User UUID", required = true) @PathVariable UUID id) {
         return ResponseEntity.ok(authService.getUserById(id));

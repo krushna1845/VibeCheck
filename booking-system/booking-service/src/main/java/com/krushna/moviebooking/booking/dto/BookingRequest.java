@@ -26,5 +26,11 @@ public record BookingRequest(
         @NotEmpty(message = "At least one show seat must be selected")
         List<UUID> showSeatIds,
 
-        String paymentMethod
-) {}
+        String paymentMethod,
+
+        String idempotencyKey
+) {
+    public BookingRequest(UUID userId, UUID showId, List<UUID> showSeatIds, String paymentMethod) {
+        this(userId, showId, showSeatIds, paymentMethod, null);
+    }
+}

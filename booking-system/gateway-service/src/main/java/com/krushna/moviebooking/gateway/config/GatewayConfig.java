@@ -12,8 +12,13 @@ import org.springframework.web.client.RestTemplate;
 public class GatewayConfig {
 
     @Bean
-    public RestTemplate restTemplate() {
-        return new RestTemplate();
+    public RestTemplate restTemplate(
+            @org.springframework.beans.factory.annotation.Value("${gateway.http.connect-timeout-ms:3000}") int connectTimeout,
+            @org.springframework.beans.factory.annotation.Value("${gateway.http.read-timeout-ms:5000}") int readTimeout) {
+        org.springframework.http.client.SimpleClientHttpRequestFactory factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(connectTimeout);
+        factory.setReadTimeout(readTimeout);
+        return new RestTemplate(factory);
     }
 
     @Bean

@@ -1,11 +1,12 @@
 package com.krushna.moviebooking.payment.service;
 
 import com.krushna.moviebooking.payment.dto.PaymentResponse;
+import com.krushna.moviebooking.payment.dto.RefundResponse;
 
 import java.util.Optional;
 
 /**
- * Manages idempotency records for payment initiation requests.
+ * Manages idempotency records for payment initiation requests and refunds.
  *
  * <p>Uses Redis to store previously processed responses keyed on caller-supplied
  * idempotency keys. This prevents double-charging on network retries.
@@ -32,6 +33,22 @@ public interface PaymentIdempotencyService {
      * @param response       Completed payment response to cache
      */
     void cacheResponse(String idempotencyKey, PaymentResponse response);
+
+    /**
+     * Attempts to retrieve a cached {@link RefundResponse} for the given refund idempotency key.
+     *
+     * @param idempotencyKey Caller-supplied idempotency key
+     * @return An {@link Optional} containing the cached refund response, or empty if not found
+     */
+    Optional<RefundResponse> findCachedRefundResponse(String idempotencyKey);
+
+    /**
+     * Caches a {@link RefundResponse} under the given refund idempotency key.
+     *
+     * @param idempotencyKey Caller-supplied idempotency key
+     * @param response       Completed refund response to cache
+     */
+    void cacheRefundResponse(String idempotencyKey, RefundResponse response);
 
     /**
      * Returns {@code true} if a callback for the given transaction reference has already

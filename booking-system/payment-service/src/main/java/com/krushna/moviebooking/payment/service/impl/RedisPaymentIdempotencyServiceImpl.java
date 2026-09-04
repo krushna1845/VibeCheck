@@ -38,6 +38,7 @@ import java.util.Optional;
 public class RedisPaymentIdempotencyServiceImpl implements PaymentIdempotencyService {
 
     private static final String IDEMPOTENCY_PREFIX = "payment:idem:";
+    private static final String REFUND_IDEMPOTENCY_PREFIX = "payment:refund:idem:";
     private static final String CALLBACK_PREFIX    = "payment:callback:";
 
     private final StringRedisTemplate redisTemplate;
@@ -92,6 +93,53 @@ public class RedisPaymentIdempotencyServiceImpl implements PaymentIdempotencySer
             }
         } catch (JsonProcessingException e) {
             log.error("[Idempotency] Failed to serialize response for key={}: {}", idempotencyKey, e.getMessage());
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Optional<com.krushna.moviebooking.payment.dto.RefundResponse> findCachedRefundResponse(String idempotencyKey) {
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            return Optional.empty();
+        }
+        String redisKey = REFUND_IDEMPOTENCY_PREFIX + idempotencyKey;
+        String cached = redisTemplate.opsForValue().get(redisKey);
+        if (cached == null) {
+            log.debug("[Idempotency] Refund cache miss for key={}", idempotencyKey);
+            return Optional.empty();
+        }
+        try {
+            com.krushna.moviebooking.payment.dto.RefundResponse response = objectMapper.readValue(cached, com.krushna.moviebooking.payment.dto.RefundResponse.class);
+            log.info("[Idempotency] Refund cache hit for key={} — returning cached refund without gateway call", idempotencyKey);
+            return Optional.of(response);
+        } catch (JsonProcessingException e) {
+            log.error("[Idempotency] Failed to deserialize cached refund for key={}: {}", idempotencyKey, e.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void cacheRefundResponse(String idempotencyKey, com.krushna.moviebooking.payment.dto.RefundResponse response) {
+        if (idempotencyKey == null || idempotencyKey.isBlank() || response == null) {
+            return;
+        }
+        String redisKey = REFUND_IDEMPOTENCY_PREFIX + idempotencyKey;
+        try {
+            String json = objectMapper.writeValueAsString(response);
+            Long result = redisTemplate.execute(
+                    idempotencySetScript,
+                    List.of(redisKey),
+                    json,
+                    String.valueOf(idempotencyTtlSeconds)
+            );
+            if (Long.valueOf(1L).equals(result)) {
+                log.info("[Idempotency] Cached refund response for key={} ttl={}s", idempotencyKey, idempotencyTtlSeconds);
+            } else {
+                log.debug("[Idempotency] Refund key={} already cached — skipping overwrite", idempotencyKey);
+            }
+        } catch (JsonProcessingException e) {
+            log.error("[Idempotency] Failed to serialize refund response for key={}: {}", idempotencyKey, e.getMessage());
         }
     }
 

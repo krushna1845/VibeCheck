@@ -56,6 +56,20 @@ public class ProxyController {
     @Value("${services.payment-url:http://localhost:8085}")
     private String paymentServiceUrl;
 
+    @Value("${services.notification-url:http://localhost:8086}")
+    private String notificationServiceUrl;
+
+    @Value("${internal.security.secret:" + com.krushna.moviebooking.common.security.InternalAuthConstants.DEFAULT_INTERNAL_SECRET + "}")
+    private String internalSecret;
+
+    private static final java.util.Set<String> UNTRUSTED_CLIENT_HEADERS = java.util.Set.of(
+            "x-user-id",
+            "x-user-roles",
+            "x-user-email",
+            "x-internal-service",
+            "x-internal-secret"
+    );
+
     public ProxyController(RestTemplate restTemplate,
                            GatewayMetricsService metricsService,
                            CircuitBreakerRegistry circuitBreakerRegistry,
@@ -98,6 +112,11 @@ public class ProxyController {
         return proxyRequest("paymentService", paymentServiceUrl, "/api/v1/payments", request, body, fallbackController::paymentFallback);
     }
 
+    @RequestMapping("/tickets/**")
+    public ResponseEntity<?> proxyTickets(HttpServletRequest request, @RequestBody(required = false) byte[] body) {
+        return proxyRequest("notificationService", notificationServiceUrl, "/api/v1/tickets", request, body, fallbackController::defaultFallback);
+    }
+
     private ResponseEntity<?> proxyRequest(String instanceName,
                                             String baseUrl,
                                             String prefix,
@@ -115,13 +134,22 @@ public class ProxyController {
         log.debug("[GatewayProxy] Forwarding {} request to {}", method, targetUrl);
 
         CircuitBreaker circuitBreaker = circuitBreakerRegistry.circuitBreaker(instanceName);
-        Retry retry = retryRegistry.retry(instanceName);
 
-        Callable<ResponseEntity<byte[]>> decoratedCall = CircuitBreaker.decorateCallable(circuitBreaker,
-                Retry.decorateCallable(retry, () -> {
-                    HttpEntity<byte[]> entity = new HttpEntity<>(body, headers);
-                    return restTemplate.exchange(URI.create(targetUrl), method, entity, byte[].class);
-                }));
+        Callable<ResponseEntity<byte[]>> httpCall = () -> {
+            HttpEntity<byte[]> entity = new HttpEntity<>(body, headers);
+            return restTemplate.exchange(URI.create(targetUrl), method, entity, byte[].class);
+        };
+
+        // Only safe and idempotent HTTP methods (GET, HEAD) are eligible for automatic retry.
+        // State-changing methods (POST, PUT, DELETE, PATCH) must never be blindly retried.
+        Callable<ResponseEntity<byte[]>> decoratedCall;
+        if (isRetryable(method)) {
+            Retry retry = retryRegistry.retry(instanceName);
+            decoratedCall = CircuitBreaker.decorateCallable(circuitBreaker, Retry.decorateCallable(retry, httpCall));
+        } else {
+            log.debug("[GatewayProxy] Non-retryable HTTP method {} for {} - applying CircuitBreaker only without Retry", method, targetUrl);
+            decoratedCall = CircuitBreaker.decorateCallable(circuitBreaker, httpCall);
+        }
 
         try {
             ResponseEntity<byte[]> response = decoratedCall.call();
@@ -153,7 +181,9 @@ public class ProxyController {
         if (headerNames != null) {
             while (headerNames.hasMoreElements()) {
                 String name = headerNames.nextElement();
-                if (!name.equalsIgnoreCase("host") && !name.equalsIgnoreCase("content-length")) {
+                String lower = name.toLowerCase();
+                // Strip host, content-length, and untrusted client identity/internal headers
+                if (!lower.equals("host") && !lower.equals("content-length") && !UNTRUSTED_CLIENT_HEADERS.contains(lower)) {
                     Enumeration<String> values = request.getHeaders(name);
                     while (values.hasMoreElements()) {
                         headers.add(name, values.nextElement());
@@ -168,12 +198,20 @@ public class ProxyController {
             headers.set(CorrelationIdFilter.CORRELATION_ID_HEADER, correlationId);
         }
 
-        // Inject User Info from SecurityContext if authenticated
+        // Inject trusted perimeter credentials
+        headers.set(com.krushna.moviebooking.common.security.InternalAuthConstants.INTERNAL_SERVICE_HEADER, "gateway-service");
+        headers.set(com.krushna.moviebooking.common.security.InternalAuthConstants.INTERNAL_SECRET_HEADER, internalSecret);
+
+        // Inject User Info strictly from verified SecurityContext if authenticated
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {
-            headers.set("X-User-Id", auth.getPrincipal().toString());
+            headers.set(com.krushna.moviebooking.common.security.InternalAuthConstants.USER_ID_HEADER, auth.getPrincipal().toString());
             var authorities = auth.getAuthorities().stream().map(Object::toString).toList();
-            headers.set("X-User-Roles", String.join(",", authorities));
+            headers.set(com.krushna.moviebooking.common.security.InternalAuthConstants.USER_ROLES_HEADER, String.join(",", authorities));
+        } else {
+            headers.remove(com.krushna.moviebooking.common.security.InternalAuthConstants.USER_ID_HEADER);
+            headers.remove(com.krushna.moviebooking.common.security.InternalAuthConstants.USER_ROLES_HEADER);
+            headers.remove(com.krushna.moviebooking.common.security.InternalAuthConstants.USER_EMAIL_HEADER);
         }
 
         return headers;
@@ -188,5 +226,14 @@ public class ProxyController {
             }
         });
         return filtered;
+    }
+
+    /**
+     * Determines whether an HTTP method is safe and idempotent for automatic retry.
+     * Only GET and HEAD requests are safe to retry automatically.
+     * Mutations (POST, PUT, DELETE, PATCH) must not be retried to prevent duplicate side effects.
+     */
+    private boolean isRetryable(HttpMethod method) {
+        return method == HttpMethod.GET || method == HttpMethod.HEAD;
     }
 }

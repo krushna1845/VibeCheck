@@ -47,9 +47,24 @@ public class BookingController {
     })
     @PostMapping
     public ResponseEntity<ApiResponse<BookingResponse>> createBooking(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKeyHeader,
             @Valid @RequestBody BookingRequest request) {
-        log.info("REST request to create booking for showId: {}", request.showId());
-        BookingResponse response = bookingService.createBooking(request);
+        String effectiveIdempotencyKey = (idempotencyKeyHeader != null && !idempotencyKeyHeader.isBlank())
+                ? idempotencyKeyHeader.trim()
+                : request.idempotencyKey();
+
+        BookingRequest effectiveRequest = (request.idempotencyKey() == null && effectiveIdempotencyKey != null)
+                ? BookingRequest.builder()
+                        .userId(request.userId())
+                        .showId(request.showId())
+                        .showSeatIds(request.showSeatIds())
+                        .paymentMethod(request.paymentMethod())
+                        .idempotencyKey(effectiveIdempotencyKey)
+                        .build()
+                : request;
+
+        log.info("REST request to create booking for showId: {} idempotencyKey: {}", request.showId(), effectiveIdempotencyKey);
+        BookingResponse response = bookingService.createBooking(effectiveRequest);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response, "Booking created successfully"));
     }

@@ -7,6 +7,7 @@ import com.krushna.moviebooking.booking.entity.Booking;
 import com.krushna.moviebooking.booking.entity.BookingSeat;
 import com.krushna.moviebooking.booking.event.*;
 import com.krushna.moviebooking.booking.exception.*;
+import com.krushna.moviebooking.booking.idempotency.BookingIdempotencyService;
 import com.krushna.moviebooking.booking.mapper.BookingMapper;
 import com.krushna.moviebooking.booking.repository.BookingRepository;
 import com.krushna.moviebooking.booking.repository.BookingSpecification;
@@ -27,6 +28,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -43,8 +45,12 @@ import java.util.UUID;
  *
  * <p><b>Validation strategy</b>:
  * Bean validation fires at controller boundary via {@code @Valid}.
- * Business rules (show existence, seat availability, concurrency lock, state transition)
- * are validated in this layer via {@link BookingValidationFacade} before persistent writes.
+ * Structural and business rules checked via {@link BookingValidationFacade}.
+ * State transition safety enforced via {@link com.krushna.moviebooking.booking.statemachine.BookingStateTransitionService}.
+ *
+ * <p><b>Concurrency &amp; locking</b>:
+ * Seat selection is guarded by distributed locks in Redis ({@link SeatLockService})
+ * before any database row is written. Lock TTL matches reservation expiry window (5 min).
  */
 @Slf4j
 @Service
@@ -66,6 +72,7 @@ public class BookingServiceImpl implements BookingService {
     private final BookingEventPublisher bookingEventPublisher;
     private final BookingMapper bookingMapper;
     private final SeatAvailabilityPublisher seatAvailabilityPublisher;
+    private final BookingIdempotencyService bookingIdempotencyService;
 
     // -------------------------------------------------------------------------
     // CREATE
@@ -77,8 +84,19 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional
     public BookingResponse createBooking(BookingRequest request) {
-        log.info("Creating booking for userId: {}, showId: {}, seats: {}",
-                request.userId(), request.showId(), request.showSeatIds());
+        log.info("Creating booking for userId: {}, showId: {}, seats: {}, idempotencyKey: {}",
+                request.userId(), request.showId(), request.showSeatIds(), request.idempotencyKey());
+
+        // Idempotency check: if request carries an idempotency key and response is already cached,
+        // return cached booking directly to prevent seat locking conflicts and duplicate bookings
+        if (request.idempotencyKey() != null && !request.idempotencyKey().isBlank()) {
+            Optional<BookingResponse> cached = bookingIdempotencyService.findCachedResponse(request.idempotencyKey());
+            if (cached.isPresent()) {
+                log.info("[BookingService] Idempotent hit for key={} -> returning cached booking {}",
+                        request.idempotencyKey(), cached.get().bookingReference());
+                return cached.get();
+            }
+        }
 
         bookingValidationFacade.validateBookingCreation(request);
 
@@ -183,7 +201,11 @@ public class BookingServiceImpl implements BookingService {
                         .userId(saved.getUserId())
                         .build());
 
-        return bookingMapper.toResponse(saved);
+        BookingResponse response = bookingMapper.toResponse(saved);
+        if (request.idempotencyKey() != null && !request.idempotencyKey().isBlank()) {
+            bookingIdempotencyService.cacheResponse(request.idempotencyKey(), response);
+        }
+        return response;
     }
 
     // -------------------------------------------------------------------------

@@ -64,6 +64,9 @@ class BookingServiceImplTest {
     @Mock
     private SeatAvailabilityPublisher seatAvailabilityPublisher;
 
+    @Mock
+    private com.krushna.moviebooking.booking.idempotency.BookingIdempotencyService bookingIdempotencyService;
+
     @InjectMocks
     private BookingServiceImpl bookingService;
 

@@ -63,6 +63,18 @@ public class PaymentServiceImpl implements PaymentService {
             return cached.get();
         }
 
+        // DB Fallback: Check if payment already exists in DB by idempotencyKey
+        // Prevents double-charging if Redis cache expired, flushed, or network disconnected after persistence
+        Optional<Payment> existingPayment = paymentRepository.findByIdempotencyKey(request.idempotencyKey());
+        if (existingPayment.isPresent()) {
+            Payment p = existingPayment.get();
+            log.info("[PaymentService] DB Idempotent hit for key={} | paymentId={} status={}",
+                    request.idempotencyKey(), p.getId(), p.getStatus());
+            PaymentResponse response = buildResponse(p, null);
+            idempotencyService.cacheResponse(request.idempotencyKey(), response);
+            return response;
+        }
+
         PaymentClient client = paymentGatewayFactory.getPaymentClient();
         String gatewayName = client.getGatewayName();
 
@@ -242,8 +254,34 @@ public class PaymentServiceImpl implements PaymentService {
     public RefundResponse processRefund(RefundRequest request) {
         log.info("[PaymentService] Processing refund | paymentId={} amount={}", request.paymentId(), request.amount());
 
+        // 1. Check Redis idempotency cache for refund key
+        Optional<RefundResponse> cachedRefund = idempotencyService.findCachedRefundResponse(request.idempotencyKey());
+        if (cachedRefund.isPresent()) {
+            log.info("[PaymentService] Idempotent refund hit for key={} — returning cached refund", request.idempotencyKey());
+            return cachedRefund.get();
+        }
+
         Payment payment = paymentRepository.findById(request.paymentId())
                 .orElseThrow(() -> new PaymentNotFoundException("Payment not found for id: " + request.paymentId()));
+
+        // 2. Check if payment was already refunded in database (prevents duplicate refund on lost response / retry)
+        if ("REFUNDED".equalsIgnoreCase(payment.getRefundStatus()) || payment.getRefundReference() != null) {
+            log.info("[PaymentService] Payment {} already refunded with ref {} — returning existing refund",
+                    payment.getId(), payment.getRefundReference());
+            RefundResponse existingRefund = RefundResponse.builder()
+                    .paymentId(payment.getId())
+                    .bookingId(payment.getBookingId())
+                    .refundReference(payment.getRefundReference())
+                    .transactionReference(payment.getTransactionReference())
+                    .amount(payment.getRefundAmount() != null ? payment.getRefundAmount() : request.amount())
+                    .currency(payment.getCurrency())
+                    .status("REFUNDED")
+                    .reason(request.reason())
+                    .createdAt(payment.getUpdatedAt())
+                    .build();
+            idempotencyService.cacheRefundResponse(request.idempotencyKey(), existingRefund);
+            return existingRefund;
+        }
 
         if (!"SUCCESS".equalsIgnoreCase(payment.getStatus())) {
             throw new IllegalStateException("Cannot refund payment with status: " + payment.getStatus());
@@ -256,6 +294,8 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setRefundAmount(request.amount());
         payment.setRefundStatus("REFUNDED");
         payment = paymentRepository.save(payment);
+
+        idempotencyService.cacheRefundResponse(request.idempotencyKey(), refundResponse);
 
         final Payment savedPayment = payment;
         final RefundResponse finalResponse = refundResponse;

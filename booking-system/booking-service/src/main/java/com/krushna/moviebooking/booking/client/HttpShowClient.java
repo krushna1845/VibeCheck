@@ -36,7 +36,8 @@ public class HttpShowClient implements ShowClient {
             RestClient.Builder restClientBuilder,
             @Value("${services.show-service.url:http://show-service:8083}") String showServiceUrl,
             @Value("${services.show-service.connect-timeout-ms:3000}") int connectTimeoutMs,
-            @Value("${services.show-service.read-timeout-ms:5000}") int readTimeoutMs) {
+            @Value("${services.show-service.read-timeout-ms:5000}") int readTimeoutMs,
+            @Value("${internal.security.secret:" + com.krushna.moviebooking.common.security.InternalAuthConstants.DEFAULT_INTERNAL_SECRET + "}") String internalSecret) {
 
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(Duration.ofMillis(connectTimeoutMs));
@@ -45,7 +46,8 @@ public class HttpShowClient implements ShowClient {
         this.restClient = restClientBuilder
                 .baseUrl(showServiceUrl)
                 .requestFactory(requestFactory)
-                .defaultHeader("X-Internal-Service", "booking-service")
+                .defaultHeader(com.krushna.moviebooking.common.security.InternalAuthConstants.INTERNAL_SERVICE_HEADER, "booking-service")
+                .defaultHeader(com.krushna.moviebooking.common.security.InternalAuthConstants.INTERNAL_SECRET_HEADER, internalSecret)
                 .requestInterceptor((request, body, execution) -> {
                     // Propagate caller Authorization header if present in current request context
                     var attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();

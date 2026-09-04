@@ -110,6 +110,7 @@ services:
       MANAGEMENT_HEALTH_REDISREACTIVE_ENABLED: "false"
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_AUTOCONFIGURE_EXCLUDE: "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration,org.springframework.boot.jdbc.autoconfigure.DataSourceTransactionManagerAutoConfiguration,org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration,org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration"
+      INTERNAL_SECURITY_SECRET: ${INTERNAL_SECURITY_SECRET:-vibecheck-internal-perimeter-secret-key-m17}
     depends_on:
       redis:
         condition: service_healthy
@@ -131,8 +132,7 @@ services:
       dockerfile: Dockerfile
     container_name: vibecheck-auth
     restart: unless-stopped
-    ports:
-      - "${AUTH_PORT:-8080}:8080"
+    # No host ports: only accessible via Docker network through gateway-service
     environment:
       SPRING_PROFILES_ACTIVE: local
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/vibecheck_auth?useSSL=false&allowPublicKeyRetrieval=true
@@ -141,6 +141,7 @@ services:
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      INTERNAL_SECURITY_SECRET: ${INTERNAL_SECURITY_SECRET:-vibecheck-internal-perimeter-secret-key-m17}
     depends_on:
       mysql:
         condition: service_healthy
@@ -164,8 +165,7 @@ services:
       dockerfile: Dockerfile
     container_name: vibecheck-movie
     restart: unless-stopped
-    ports:
-      - "${MOVIE_PORT:-8081}:8081"
+    # No host ports: only accessible via Docker network through gateway-service
     environment:
       SPRING_PROFILES_ACTIVE: local
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/vibecheck_movie?useSSL=false&allowPublicKeyRetrieval=true
@@ -178,6 +178,7 @@ services:
       MANAGEMENT_HEALTH_REDIS_ENABLED: "false"
       MANAGEMENT_HEALTH_REDISREACTIVE_ENABLED: "false"
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      INTERNAL_SECURITY_SECRET: ${INTERNAL_SECURITY_SECRET:-vibecheck-internal-perimeter-secret-key-m17}
     depends_on:
       mysql:
         condition: service_healthy
@@ -201,8 +202,7 @@ services:
       dockerfile: Dockerfile
     container_name: vibecheck-theatre
     restart: unless-stopped
-    ports:
-      - "${THEATRE_PORT:-8082}:8082"
+    # No host ports: only accessible via Docker network through gateway-service
     environment:
       SPRING_PROFILES_ACTIVE: local
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/vibecheck_theatre?useSSL=false&allowPublicKeyRetrieval=true
@@ -215,6 +215,7 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       MANAGEMENT_HEALTH_REDIS_ENABLED: "false"
       MANAGEMENT_HEALTH_REDISREACTIVE_ENABLED: "false"
+      INTERNAL_SECURITY_SECRET: ${INTERNAL_SECURITY_SECRET:-vibecheck-internal-perimeter-secret-key-m17}
     depends_on:
       mysql:
         condition: service_healthy
@@ -238,8 +239,7 @@ services:
       dockerfile: Dockerfile
     container_name: vibecheck-show
     restart: unless-stopped
-    ports:
-      - "${SHOW_PORT:-8083}:8083"
+    # No host ports: only accessible via Docker network through gateway-service
     environment:
       SPRING_PROFILES_ACTIVE: local
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/vibecheck_show?useSSL=false&allowPublicKeyRetrieval=true
@@ -252,6 +252,7 @@ services:
       MANAGEMENT_HEALTH_REDIS_ENABLED: "false"
       MANAGEMENT_HEALTH_REDISREACTIVE_ENABLED: "false"
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      INTERNAL_SECURITY_SECRET: ${INTERNAL_SECURITY_SECRET:-vibecheck-internal-perimeter-secret-key-m17}
     depends_on:
       mysql:
         condition: service_healthy
@@ -275,8 +276,7 @@ services:
       dockerfile: Dockerfile
     container_name: vibecheck-booking
     restart: unless-stopped
-    ports:
-      - "${BOOKING_PORT:-8084}:8084"
+    # No host ports: only accessible via Docker network through gateway-service
     environment:
       SPRING_PROFILES_ACTIVE: local
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/vibecheck_booking?useSSL=false&allowPublicKeyRetrieval=true
@@ -290,6 +290,7 @@ services:
       MANAGEMENT_HEALTH_REDISREACTIVE_ENABLED: "false"
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SHOW_SERVICE_URL: http://show-service:8083
+      INTERNAL_SECURITY_SECRET: ${INTERNAL_SECURITY_SECRET:-vibecheck-internal-perimeter-secret-key-m17}
     depends_on:
       mysql:
         condition: service_healthy
@@ -313,8 +314,7 @@ services:
       dockerfile: Dockerfile
     container_name: vibecheck-payment
     restart: unless-stopped
-    ports:
-      - "${PAYMENT_PORT:-8085}:8085"
+    # No host ports: only accessible via Docker network through gateway-service
     environment:
       SPRING_PROFILES_ACTIVE: local
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/vibecheck_payment?useSSL=false&allowPublicKeyRetrieval=true
@@ -334,6 +334,7 @@ services:
       RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET}
       STRIPE_API_KEY: ${STRIPE_API_KEY}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      INTERNAL_SECURITY_SECRET: ${INTERNAL_SECURITY_SECRET:-vibecheck-internal-perimeter-secret-key-m17}
     depends_on:
       mysql:
         condition: service_healthy
@@ -357,8 +358,7 @@ services:
       dockerfile: Dockerfile
     container_name: vibecheck-notification
     restart: unless-stopped
-    ports:
-      - "${NOTIFICATION_PORT:-8086}:8086"
+    # No host ports: only accessible via Docker network through gateway-service
     environment:
       SPRING_PROFILES_ACTIVE: local
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/vibecheck_notification?useSSL=false&allowPublicKeyRetrieval=true
@@ -379,6 +379,7 @@ services:
       MANAGEMENT_HEALTH_REDIS_ENABLED: "false"
       MANAGEMENT_HEALTH_REDISREACTIVE_ENABLED: "false"
       MANAGEMENT_HEALTH_MAIL_ENABLED: "false"
+      INTERNAL_SECURITY_SECRET: ${INTERNAL_SECURITY_SECRET:-vibecheck-internal-perimeter-secret-key-m17}
     depends_on:
       mysql:
         condition: service_healthy

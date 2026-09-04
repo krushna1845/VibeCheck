@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -20,7 +21,7 @@ import java.util.List;
 /**
  * Gateway JWT authentication filter.
  * Validates Bearer token on every inbound request and populates SecurityContext.
- * Also injects X-User-Id / X-User-Email / X-User-Roles headers for downstream services.
+ * Rejects invalid or expired JWTs immediately with HTTP 401.
  */
 @Slf4j
 @Component
@@ -35,14 +36,25 @@ public class GatewayJwtFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         String jwt = extractBearerToken(request);
 
-        if (StringUtils.hasText(jwt) && jwtValidator.isValid(jwt)) {
+        if (StringUtils.hasText(jwt)) {
+            if (!jwtValidator.isValid(jwt)) {
+                log.warn("[Gateway] Invalid or expired JWT token on uri: {}", request.getRequestURI());
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                response.getWriter().write("{\"success\":false,\"error\":{\"code\":\"UNAUTHORIZED\",\"message\":\"Invalid or expired JWT token\"}}");
+                return;
+            }
+
             try {
                 String userId = jwtValidator.getUserId(jwt).toString();
                 String email = jwtValidator.getEmail(jwt);
                 List<String> roles = jwtValidator.getRoles(jwt);
 
                 List<SimpleGrantedAuthority> authorities = roles != null
-                        ? roles.stream().map(SimpleGrantedAuthority::new).toList()
+                        ? roles.stream()
+                            .map(r -> r.startsWith("ROLE_") ? r : "ROLE_" + r)
+                            .map(SimpleGrantedAuthority::new)
+                            .toList()
                         : List.of();
 
                 UsernamePasswordAuthenticationToken auth =
@@ -50,9 +62,13 @@ public class GatewayJwtFilter extends OncePerRequestFilter {
                 auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(auth);
 
-                log.debug("[Gateway] Authenticated userId={} email={}", userId, email);
+                log.debug("[Gateway] Authenticated userId={} email={} roles={}", userId, email, authorities);
             } catch (Exception ex) {
                 log.error("[Gateway] Failed to set auth from token: {}", ex.getMessage());
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                response.getWriter().write("{\"success\":false,\"error\":{\"code\":\"UNAUTHORIZED\",\"message\":\"Malformed or unreadable JWT token\"}}");
+                return;
             }
         }
 
@@ -62,7 +78,7 @@ public class GatewayJwtFilter extends OncePerRequestFilter {
     private String extractBearerToken(HttpServletRequest request) {
         String header = request.getHeader("Authorization");
         if (StringUtils.hasText(header) && header.startsWith("Bearer ")) {
-            return header.substring(7);
+            return header.substring(7).trim();
         }
         return null;
     }
