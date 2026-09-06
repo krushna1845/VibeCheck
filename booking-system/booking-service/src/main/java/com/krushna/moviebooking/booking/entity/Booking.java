@@ -72,6 +72,11 @@ public class Booking {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    @Version
+    @Column(name = "version", nullable = false)
+    @Builder.Default
+    private Long version = 0L;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

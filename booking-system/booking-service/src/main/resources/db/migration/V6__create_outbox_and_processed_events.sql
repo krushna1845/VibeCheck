@@ -1,9 +1,9 @@
 -- Flyway Migration V6: Create Outbox Events and Processed Events tables for Kafka Event Layer
--- Target Database: booking_db
+-- Target Database: vibecheck_booking (MySQL 8.0)
 
 -- 1. Table: outbox_events (Transactional Outbox Pattern)
 CREATE TABLE outbox_events (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id BINARY(16) NOT NULL PRIMARY KEY,
     aggregate_type VARCHAR(50) NOT NULL,
     aggregate_id VARCHAR(100) NOT NULL,
     event_type VARCHAR(100) NOT NULL,
@@ -11,22 +11,22 @@ CREATE TABLE outbox_events (
     payload TEXT NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     retry_count INT NOT NULL DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    processed_at TIMESTAMPTZ NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    processed_at DATETIME(6) NULL,
     error_message TEXT NULL,
-    next_retry_at TIMESTAMPTZ NULL
-);
+    next_retry_at DATETIME(6) NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE INDEX idx_outbox_events_status ON outbox_events(status, created_at) WHERE status = 'PENDING';
+CREATE INDEX idx_outbox_events_status ON outbox_events(status, created_at);
 CREATE INDEX idx_outbox_events_retry ON outbox_events(status, next_retry_at, retry_count);
 CREATE INDEX idx_outbox_events_aggregate ON outbox_events(aggregate_type, aggregate_id);
 
 -- 2. Table: processed_events (Consumer Idempotency Store)
 CREATE TABLE processed_events (
-    event_id VARCHAR(100) PRIMARY KEY,
+    event_id VARCHAR(100) NOT NULL PRIMARY KEY,
     event_type VARCHAR(100) NOT NULL,
     consumer_group VARCHAR(100) NOT NULL DEFAULT 'booking-service-group',
-    processed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
+    processed_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_processed_events_type ON processed_events(event_type);

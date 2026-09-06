@@ -12,7 +12,7 @@ spring:
 
 # JWT secret must match auth-service secret
 jwt:
-  secret: 9a4f2c8d7e6b5a4c3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a
+  secret: ${JWT_SECRET:9a4f2c8d7e6b5a4c3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a}
   access-token-expiration-ms: 86400000
 
 # Downstream service URLs (using Docker service names)

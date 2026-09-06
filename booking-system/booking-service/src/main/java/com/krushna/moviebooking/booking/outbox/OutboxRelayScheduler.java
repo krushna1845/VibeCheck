@@ -10,13 +10,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.header.internals.RecordHeader;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -28,22 +31,45 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * outbox eventual delivery.
  *
  * <p>Key Guarantees:
- * 1. Non-blocking DB transactions: Claiming events, Kafka publishing, and status updating are executed
+ * 1. Distributed Scheduler Lock: Uses Redis distributed locking (lock:outbox:relay) with
+ *    lease timeouts to guarantee that only one instance coordinates relay cycles across multiple
+ *    pod replicas.
+ * 2. Non-blocking DB transactions: Claiming events, Kafka publishing, and status updating are executed
  *    in separate small transactions so database connection pools are never held during network I/O to Kafka.
- * 2. Multi-instance concurrency: Uses SELECT FOR UPDATE SKIP LOCKED and atomic IN_PROGRESS status transitions
+ * 3. Multi-instance concurrency: Uses SELECT FOR UPDATE SKIP LOCKED and atomic IN_PROGRESS status transitions
  *    with lease timeouts so multiple replicas can poll concurrently without duplicate dispatches.
- * 3. Exponential backoff: Failed dispatches calculate progressive retry delays before next polling attempt.
- * 4. Graceful recovery: Stranded events automatically recover upon lease expiry.
+ * 4. Exponential backoff: Failed dispatches calculate progressive retry delays before next polling attempt.
+ * 5. Graceful recovery: Stranded events automatically recover upon lease expiry.
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class OutboxRelayScheduler {
 
     private final OutboxEventService outboxEventService;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final ObjectMapper objectMapper;
     private final MeterRegistry meterRegistry;
+    private final StringRedisTemplate stringRedisTemplate;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public OutboxRelayScheduler(OutboxEventService outboxEventService,
+                                KafkaTemplate<String, Object> kafkaTemplate,
+                                ObjectMapper objectMapper,
+                                MeterRegistry meterRegistry,
+                                @org.springframework.beans.factory.annotation.Autowired(required = false) StringRedisTemplate stringRedisTemplate) {
+        this.outboxEventService = outboxEventService;
+        this.kafkaTemplate = kafkaTemplate;
+        this.objectMapper = objectMapper;
+        this.meterRegistry = meterRegistry;
+        this.stringRedisTemplate = stringRedisTemplate;
+    }
+
+    public OutboxRelayScheduler(OutboxEventService outboxEventService,
+                                KafkaTemplate<String, Object> kafkaTemplate,
+                                ObjectMapper objectMapper,
+                                MeterRegistry meterRegistry) {
+        this(outboxEventService, kafkaTemplate, objectMapper, meterRegistry, null);
+    }
 
     @Value("${booking.outbox.max-retries:5}")
     private int maxRetries = 5;
@@ -55,6 +81,9 @@ public class OutboxRelayScheduler {
     private long publishTimeoutSeconds = 5;
 
     private final AtomicBoolean isRunning = new AtomicBoolean(false);
+    private final String instanceId = UUID.randomUUID().toString();
+    private static final String SCHEDULER_LOCK_KEY = "lock:outbox:relay";
+    private static final Duration LOCK_TTL = Duration.ofSeconds(15);
 
     private static final Map<String, String> EVENT_TOPIC_MAP = Map.of(
             "BOOKING_CREATED", KafkaConfig.BOOKING_CREATED_TOPIC,
@@ -67,29 +96,61 @@ public class OutboxRelayScheduler {
     @Scheduled(fixedDelayString = "${booking.outbox.relay-interval-ms:5000}")
     public void processOutboxEvents() {
         if (!isRunning.compareAndSet(false, true)) {
-            log.debug("[OutboxRelay] Skipping run as previous relay cycle is still active.");
+            log.debug("[OutboxRelay] Skipping run as previous local relay cycle is still active.");
             return;
         }
 
-        Timer.Sample sample = Timer.start(meterRegistry);
+        Boolean acquiredLock = Boolean.FALSE;
         try {
-            List<OutboxEvent> claimedEvents = outboxEventService.claimEventsForProcessing(maxRetries, batchSize);
-            if (claimedEvents == null || claimedEvents.isEmpty()) {
-                return;
+            if (stringRedisTemplate != null) {
+                try {
+                    acquiredLock = stringRedisTemplate.opsForValue()
+                            .setIfAbsent(SCHEDULER_LOCK_KEY, instanceId, LOCK_TTL);
+                } catch (Exception redisEx) {
+                    log.warn("[OutboxRelay] Redis lock unavailable, continuing with local coordination: {}", redisEx.getMessage());
+                    acquiredLock = Boolean.TRUE;
+                }
+
+                if (!Boolean.TRUE.equals(acquiredLock)) {
+                    log.debug("[OutboxRelay] Another instance holds the relay lock. Skipping this cycle.");
+                    return;
+                }
+            } else {
+                acquiredLock = Boolean.TRUE;
             }
 
-            log.info("[OutboxRelay] Claimed {} pending/retryable outbox events to publish", claimedEvents.size());
+            Timer.Sample sample = Timer.start(meterRegistry);
+            try {
+                List<OutboxEvent> claimedEvents = outboxEventService.claimEventsForProcessing(maxRetries, batchSize);
+                if (claimedEvents == null || claimedEvents.isEmpty()) {
+                    return;
+                }
 
-            for (OutboxEvent event : claimedEvents) {
-                processSingleEvent(event);
+                log.info("[OutboxRelay] Instance {} claimed {} pending/retryable outbox events to publish",
+                        instanceId, claimedEvents.size());
+
+                for (OutboxEvent event : claimedEvents) {
+                    processSingleEvent(event);
+                }
+            } catch (Exception e) {
+                log.error("[OutboxRelay] Error during outbox relay execution cycle: {}", e.getMessage(), e);
+            } finally {
+                sample.stop(Timer.builder("outbox.relay.duration")
+                        .description("Time taken to process outbox relay cycle")
+                        .register(meterRegistry));
             }
-        } catch (Exception e) {
-            log.error("[OutboxRelay] Error during outbox relay execution cycle: {}", e.getMessage(), e);
         } finally {
+            if (stringRedisTemplate != null && Boolean.TRUE.equals(acquiredLock)) {
+                try {
+                    String lockOwner = stringRedisTemplate.opsForValue().get(SCHEDULER_LOCK_KEY);
+                    if (instanceId.equals(lockOwner)) {
+                        stringRedisTemplate.delete(SCHEDULER_LOCK_KEY);
+                    }
+                } catch (Exception e) {
+                    log.debug("[OutboxRelay] Error releasing scheduler lock: {}", e.getMessage());
+                }
+            }
             isRunning.set(false);
-            sample.stop(Timer.builder("outbox.relay.duration")
-                    .description("Time taken to process outbox relay cycle")
-                    .register(meterRegistry));
         }
     }
 

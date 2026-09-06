@@ -111,6 +111,7 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_AUTOCONFIGURE_EXCLUDE: "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration,org.springframework.boot.jdbc.autoconfigure.DataSourceTransactionManagerAutoConfiguration,org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration,org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration"
       INTERNAL_SECURITY_SECRET: ${INTERNAL_SECURITY_SECRET:-vibecheck-internal-perimeter-secret-key-m17}
+      JWT_SECRET: ${JWT_SECRET:-9a4f2c8d7e6b5a4c3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a}
     depends_on:
       redis:
         condition: service_healthy
@@ -142,6 +143,7 @@ services:
       SPRING_REDIS_PORT: 6379
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       INTERNAL_SECURITY_SECRET: ${INTERNAL_SECURITY_SECRET:-vibecheck-internal-perimeter-secret-key-m17}
+      JWT_SECRET: ${JWT_SECRET:-9a4f2c8d7e6b5a4c3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a}
     depends_on:
       mysql:
         condition: service_healthy

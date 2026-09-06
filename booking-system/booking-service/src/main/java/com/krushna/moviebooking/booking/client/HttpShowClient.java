@@ -32,8 +32,9 @@ public class HttpShowClient implements ShowClient {
 
     private final RestClient restClient;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public HttpShowClient(
-            RestClient.Builder restClientBuilder,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) RestClient.Builder restClientBuilder,
             @Value("${services.show-service.url:http://show-service:8083}") String showServiceUrl,
             @Value("${services.show-service.connect-timeout-ms:3000}") int connectTimeoutMs,
             @Value("${services.show-service.read-timeout-ms:5000}") int readTimeoutMs,
@@ -43,7 +44,8 @@ public class HttpShowClient implements ShowClient {
         requestFactory.setConnectTimeout(Duration.ofMillis(connectTimeoutMs));
         requestFactory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
 
-        this.restClient = restClientBuilder
+        RestClient.Builder builder = restClientBuilder != null ? restClientBuilder : RestClient.builder();
+        this.restClient = builder
                 .baseUrl(showServiceUrl)
                 .requestFactory(requestFactory)
                 .defaultHeader(com.krushna.moviebooking.common.security.InternalAuthConstants.INTERNAL_SERVICE_HEADER, "booking-service")

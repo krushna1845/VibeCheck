@@ -44,6 +44,17 @@ public class InternalAuthFilter extends OncePerRequestFilter {
     }
 
     public InternalAuthFilter(String expectedSecret, JwtClaims jwtClaims) {
+        if (InternalAuthConstants.DEFAULT_INTERNAL_SECRET.equals(expectedSecret)) {
+            String activeProfile = System.getProperty("spring.profiles.active");
+            if (activeProfile == null) {
+                activeProfile = System.getenv("SPRING_PROFILES_ACTIVE");
+            }
+            if ("prod".equalsIgnoreCase(activeProfile) || "production".equalsIgnoreCase(activeProfile)) {
+                throw new IllegalStateException("FATAL: Default internal perimeter secret detected in production! Inject a secure secret via INTERNAL_SECURITY_SECRET.");
+            } else {
+                log.warn("[SECURITY ALERT] Using default internal perimeter secret. DO NOT USE IN PRODUCTION!");
+            }
+        }
         this.expectedSecret = expectedSecret;
         this.jwtClaims = jwtClaims;
     }

@@ -23,9 +23,24 @@ public class JwtValidator {
 
     private final SecretKey key;
 
+    private static final String DEFAULT_INSECURE_SECRET = "9a4f2c8d7e6b5a4c3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a";
+
+    @org.springframework.beans.factory.annotation.Autowired
     public JwtValidator(
-            @Value("${jwt.secret:9a4f2c8d7e6b5a4c3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a}") String secret) {
+            @Value("${jwt.secret:9a4f2c8d7e6b5a4c3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a}") String secret,
+            @Value("${spring.profiles.active:default}") String activeProfile) {
+        if (DEFAULT_INSECURE_SECRET.equals(secret)) {
+            if ("prod".equalsIgnoreCase(activeProfile) || "production".equalsIgnoreCase(activeProfile)) {
+                throw new IllegalStateException("FATAL: Hardcoded JWT secret detected at Gateway in production! Inject a secure secret via JWT_SECRET.");
+            } else {
+                log.warn("[SECURITY ALERT] Gateway is using default hardcoded JWT secret. DO NOT USE IN PRODUCTION!");
+            }
+        }
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public JwtValidator(String secret) {
+        this(secret, "default");
     }
 
     public boolean isValid(String token) {

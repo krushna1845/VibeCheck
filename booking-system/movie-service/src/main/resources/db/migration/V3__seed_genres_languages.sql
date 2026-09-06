@@ -1,5 +1,6 @@
--- Flyway Migration V2: Seed Genres and Languages
-INSERT INTO genres (name, slug) VALUES
+-- Flyway Migration V3: Seed Genres and Languages
+-- Target Database: vibecheck_movie (MySQL 8.0)
+INSERT IGNORE INTO genres (name, slug) VALUES
 ('Action', 'action'),
 ('Comedy', 'comedy'),
 ('Drama', 'drama'),
@@ -9,10 +10,9 @@ INSERT INTO genres (name, slug) VALUES
 ('Horror', 'horror'),
 ('Animation', 'animation'),
 ('Adventure', 'adventure'),
-('Crime', 'crime')
-ON CONFLICT (name) DO NOTHING;
+('Crime', 'crime');
 
-INSERT INTO languages (name, code) VALUES
+INSERT IGNORE INTO languages (name, code) VALUES
 ('Hindi', 'hi'),
 ('English', 'en'),
 ('Tamil', 'ta'),
@@ -20,5 +20,4 @@ INSERT INTO languages (name, code) VALUES
 ('Malayalam', 'ml'),
 ('Kannada', 'kn'),
 ('Marathi', 'mr'),
-('Bengali', 'bn')
-ON CONFLICT (name) DO NOTHING;
+('Bengali', 'bn');
