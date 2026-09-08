@@ -113,6 +113,9 @@ public enum BookingStatus {
             throw new BookingTransitionException(
                     "BookingStatus value must not be null or blank");
         }
+        if ("PENDING".equalsIgnoreCase(value.trim())) {
+            return PAYMENT_PENDING;
+        }
         return Arrays.stream(values())
                 .filter(s -> s.name().equalsIgnoreCase(value.trim()))
                 .findFirst()
@@ -129,6 +132,9 @@ public enum BookingStatus {
     public static Optional<BookingStatus> fromSafe(String value) {
         if (value == null || value.isBlank()) {
             return Optional.empty();
+        }
+        if ("PENDING".equalsIgnoreCase(value.trim())) {
+            return Optional.of(PAYMENT_PENDING);
         }
         return Arrays.stream(values())
                 .filter(s -> s.name().equalsIgnoreCase(value.trim()))

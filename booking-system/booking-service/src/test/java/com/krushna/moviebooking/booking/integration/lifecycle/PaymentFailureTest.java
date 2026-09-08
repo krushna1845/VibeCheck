@@ -10,11 +10,13 @@ import com.krushna.moviebooking.booking.outbox.OutboxEventRepository;
 import com.krushna.moviebooking.booking.repository.BookingRepository;
 import com.krushna.moviebooking.booking.service.BookingService;
 import com.krushna.moviebooking.booking.service.SeatLockService;
+import com.krushna.moviebooking.booking.client.ShowClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
@@ -82,6 +84,9 @@ class PaymentFailureTest {
 
     @Autowired
     private BookingService bookingService;
+
+    @MockitoBean
+    private ShowClient showClient;
 
     @BeforeEach
     void setup() {
