@@ -95,7 +95,7 @@ class PaymentFailureTest {
         UUID showId = UUID.randomUUID();
         UUID seatId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
-        String bookingRef = "BK-FAIL-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+        String bookingRef = "BK-F-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
 
         // 1. Lock seat in Redis
         SeatLockResponse lockResp = seatLockService.lockSeats(SeatLockRequest.builder()

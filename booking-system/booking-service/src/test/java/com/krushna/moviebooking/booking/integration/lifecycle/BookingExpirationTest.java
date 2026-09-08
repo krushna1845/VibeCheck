@@ -91,7 +91,7 @@ class BookingExpirationTest {
         UUID showId = UUID.randomUUID();
         UUID seatId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
-        String bookingRef = "BK-EXP-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+        String bookingRef = "BK-X-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
 
         // 1. Lock the seat in Redis
         SeatLockResponse lockResp = seatLockService.lockSeats(SeatLockRequest.builder()

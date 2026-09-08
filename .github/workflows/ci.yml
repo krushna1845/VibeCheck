@@ -20,6 +20,15 @@ env:
     -Djava.awt.headless=true
   WORKING_DIR: booking-system
 
+# Permissions needed by this workflow:
+#  - contents: read   — checkout
+#  - checks: write    — mikepenz/action-junit-report needs to create/update check runs
+#  - pull-requests: write — ci-summary job posts PR comments
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
 jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   # Job 1: Build & Test — compile all modules + run full unit test suite
@@ -216,7 +225,14 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to Docker Hub
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        # Only log in when BOTH credentials are configured as repository secrets.
+        # This allows Docker image builds to run and validate locally in CI even
+        # without Docker Hub credentials, while push only happens when secrets exist.
+        if: >
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/main' &&
+          secrets.DOCKERHUB_USERNAME != '' &&
+          secrets.DOCKERHUB_TOKEN != ''
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}

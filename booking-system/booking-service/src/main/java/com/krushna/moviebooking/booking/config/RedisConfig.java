@@ -43,7 +43,7 @@ public class RedisConfig {
             end
             local ok, decoded = pcall(cjson.decode, val)
             if ok and decoded ~= nil and type(decoded) == 'table' then
-                if decoded['lockToken'] == ARGV[1] then
+                if decoded['lockToken'] == ARGV[1] or decoded['userId'] == ARGV[1] then
                     return redis.call('del', KEYS[1])
                 end
             end
@@ -58,11 +58,11 @@ public class RedisConfig {
      * <p>Ownership check order:
      * <ol>
      *   <li>Exact string equality: stored value == ARGV[1] (fast path)</li>
-     *   <li>JSON field extraction: stored JSON's {@code lockToken} field == ARGV[1] (normal path)</li>
+     *   <li>JSON field extraction: stored JSON's {@code lockToken} field == ARGV[1] or {@code userId} == ARGV[1]</li>
      * </ol>
      *
      * <p>KEYS[1]: Redis lock key (e.g. seat:{showId}:{seatId})
-     * <p>ARGV[1]: Lock ownership token (unique UUID generated at lock-acquisition time)
+     * <p>ARGV[1]: Lock ownership token or userId
      * <p>ARGV[2]: New TTL in seconds
      * <p>Returns: 1 if extended, 0 if lock not found or owned by someone else.
      */
@@ -78,7 +78,7 @@ public class RedisConfig {
             end
             local ok, decoded = pcall(cjson.decode, val)
             if ok and decoded ~= nil and type(decoded) == 'table' then
-                if decoded['lockToken'] == ARGV[1] then
+                if decoded['lockToken'] == ARGV[1] or decoded['userId'] == ARGV[1] then
                     return redis.call('expire', KEYS[1], tonumber(ARGV[2]))
                 end
             end
