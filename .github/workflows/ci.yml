@@ -1,0 +1,307 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: '21'
+  MAVEN_OPTS: >-
+    -Xmx1536m
+    -Dhttps.protocols=TLSv1.2
+    -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=WARN
+    -Dorg.slf4j.simpleLogger.showDateTime=true
+    -Djava.awt.headless=true
+  WORKING_DIR: booking-system
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 1: Build & Test — compile all modules + run full unit test suite
+  # ─────────────────────────────────────────────────────────────────────────────
+  build-and-test:
+    name: Build & Test (Java ${{ matrix.java }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        java: [ '21' ]
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: temurin
+          cache: maven
+
+      - name: Cache Maven local repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Compile all modules
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          mvn compile \
+            --batch-mode \
+            --no-transfer-progress \
+            -q
+
+      - name: Run unit tests
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          mvn test \
+            --batch-mode \
+            --no-transfer-progress \
+            -Dsurefire.failIfNoSpecifiedTests=false
+        env:
+          # Minimal secrets needed for test context (tests use mocks, not live DBs)
+          JWT_SECRET: ${{ secrets.JWT_SECRET || 'ci-test-jwt-secret-min-32-chars-long' }}
+          INTERNAL_SECURITY_SECRET: ${{ secrets.INTERNAL_SECURITY_SECRET || 'ci-internal-secret' }}
+
+      - name: Upload Surefire test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports-java-${{ matrix.java }}
+          path: |
+            booking-system/**/target/surefire-reports/
+          retention-days: 14
+
+      - name: Upload build JARs
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-jars
+          path: |
+            booking-system/**/target/*-SNAPSHOT.jar
+            !booking-system/**/target/*-SNAPSHOT.jar.original
+          retention-days: 7
+
+      - name: Publish test summary
+        if: always()
+        uses: mikepenz/action-junit-report@v4
+        with:
+          report_paths: 'booking-system/**/target/surefire-reports/TEST-*.xml'
+          check_name: Unit Test Results
+          fail_on_failure: true
+          require_tests: false
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 2: Security Scan — OWASP Dependency-Check (CVSS ≥ 7 = fail)
+  # ─────────────────────────────────────────────────────────────────────────────
+  security-scan:
+    name: Security Scan (OWASP)
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    # Run on push to main/develop; skip for dependabot PRs (no secret access)
+    if: >
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]')
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+
+      - name: Cache Maven local repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Cache OWASP NVD database
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: ${{ runner.os }}-owasp-nvd-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-owasp-nvd-
+
+      - name: Run OWASP Dependency-Check
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          mvn verify \
+            -P security-scan \
+            --batch-mode \
+            --no-transfer-progress \
+            -DskipTests=true \
+            -DfailBuildOnCVSS=7 \
+            -Dformat=ALL \
+            ${NVD_API_KEY:+-DnvdApiKey=$NVD_API_KEY}
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+
+      - name: Upload OWASP dependency check report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: owasp-dependency-check-report
+          path: |
+            booking-system/**/target/dependency-check-report.*
+          retention-days: 30
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 3: Docker Build — build all 8 service images in a parallel matrix
+  # ─────────────────────────────────────────────────────────────────────────────
+  docker-build:
+    name: Docker Build — ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - auth-service
+          - gateway-service
+          - movie-service
+          - theatre-service
+          - show-service
+          - booking-service
+          - payment-service
+          - notification-service
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+
+      - name: Cache Maven local repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Package ${{ matrix.service }} JAR
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          mvn package \
+            -pl ${{ matrix.service }} \
+            -am \
+            --batch-mode \
+            --no-transfer-progress \
+            -DskipTests=true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME || 'vibecheck' }}/vibecheck-${{ matrix.service }}
+          tags: |
+            type=sha,prefix=sha-
+            type=ref,event=branch
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build (and push on main) Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.WORKING_DIR }}/${{ matrix.service }}
+          file: ${{ env.WORKING_DIR }}/${{ matrix.service }}/Dockerfile
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.DOCKERHUB_USERNAME != '' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 4: CI Summary — post final status comment on PRs
+  # ─────────────────────────────────────────────────────────────────────────────
+  ci-summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [ build-and-test, security-scan, docker-build ]
+    if: always() && github.event_name == 'pull_request'
+    steps:
+      - name: Post PR summary comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const botComment = comments.find(c =>
+              c.user.login === 'github-actions[bot]' &&
+              c.body.includes('## CI Pipeline Summary')
+            );
+
+            const buildStatus = '${{ needs.build-and-test.result }}';
+            const securityStatus = '${{ needs.security-scan.result }}';
+            const dockerStatus = '${{ needs.docker-build.result }}';
+
+            const emoji = s => s === 'success' ? '✅' : s === 'skipped' ? '⏭️' : '❌';
+
+            const body = `## CI Pipeline Summary
+
+            | Job | Status |
+            |-----|--------|
+            | Build & Unit Tests | ${emoji(buildStatus)} \`${buildStatus}\` |
+            | Security Scan (OWASP) | ${emoji(securityStatus)} \`${securityStatus}\` |
+            | Docker Build | ${emoji(dockerStatus)} \`${dockerStatus}\` |
+
+            <details>
+            <summary>📋 Commit Details</summary>
+
+            - **Commit**: \`${{ github.sha }}\`
+            - **Branch**: \`${{ github.head_ref }}\`
+            - **Triggered by**: @${{ github.actor }}
+            </details>
+
+            > 🤖 *Updated by GitHub Actions — [View run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})*`;
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

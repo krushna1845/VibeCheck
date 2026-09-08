@@ -127,6 +127,127 @@
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.2</version>
+                <configuration>
+                    <!-- Emit XML reports for GitHub Actions JUnit summary -->
+                    <reportFormat>plain</reportFormat>
+                    <includes>
+                        <include>**/*Test.java</include>
+                        <include>**/*Tests.java</include>
+                        <include>**/*Spec.java</include>
+                    </includes>
+                    <!-- Don't fail the entire reactor if one module has no tests -->
+                    <failIfNoSpecifiedTests>false</failIfNoSpecifiedTests>
+                    <!-- Fork each test JVM to avoid Spring context leaks between modules -->
+                    <forkCount>1</forkCount>
+                    <reuseForks>true</reuseForks>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         PROFILES
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <profiles>
+
+        <!-- ──────────────────────────────────────────────────────────────────
+             Profile: checkstyle
+             Activated by: -P checkstyle  (used in pr-check.yml)
+             ────────────────────────────────────────────────────────────────── -->
+        <profile>
+            <id>checkstyle</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-checkstyle-plugin</artifactId>
+                        <version>3.6.0</version>
+                        <dependencies>
+                            <dependency>
+                                <groupId>com.puppycrawl.tools</groupId>
+                                <artifactId>checkstyle</artifactId>
+                                <version>10.21.4</version>
+                            </dependency>
+                        </dependencies>
+                        <configuration>
+                            <configLocation>${project.basedir}/checkstyle/google_checks.xml</configLocation>
+                            <suppressionsLocation>${project.basedir}/checkstyle/suppressions.xml</suppressionsLocation>
+                            <sourceDirectories>
+                                <sourceDirectory>${project.build.sourceDirectory}</sourceDirectory>
+                            </sourceDirectories>
+                            <!-- Exclude generated sources (MapStruct, Lombok) -->
+                            <excludes>**/generated/**,**/generated-sources/**</excludes>
+                            <encoding>UTF-8</encoding>
+                            <consoleOutput>true</consoleOutput>
+                            <failsOnError>true</failsOnError>
+                            <linkXRef>false</linkXRef>
+                            <violationSeverity>error</violationSeverity>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>validate-checkstyle</id>
+                                <phase>validate</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- ──────────────────────────────────────────────────────────────────
+             Profile: security-scan
+             Activated by: -P security-scan  (used in ci.yml + security-audit.yml)
+             Runs OWASP Dependency-Check to detect CVEs in transitive dependencies.
+             ────────────────────────────────────────────────────────────────── -->
+        <profile>
+            <id>security-scan</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.owasp</groupId>
+                        <artifactId>dependency-check-maven</artifactId>
+                        <version>12.1.1</version>
+                        <configuration>
+                            <!-- Report all formats so CI can upload both HTML (human) and JSON (machine) -->
+                            <format>ALL</format>
+                            <!-- CVSS score >= 7 (High) fails the build -->
+                            <failBuildOnCVSS>7</failBuildOnCVSS>
+                            <!-- Skip test-scope dependencies -->
+                            <skipTestScope>true</skipTestScope>
+                            <!-- Aggregate all module reports into the root target/ -->
+                            <aggregate>true</aggregate>
+                            <!-- Output directory -->
+                            <outputDirectory>${project.build.directory}/dependency-check-report</outputDirectory>
+                            <!-- Suppress known false positives -->
+                            <suppressionFile>${project.basedir}/checkstyle/owasp-suppressions.xml</suppressionFile>
+                            <!-- Optional: NVD API key (pass via -DnvdApiKey or NVD_API_KEY env var) -->
+                            <nvdApiKey>${nvdApiKey}</nvdApiKey>
+                            <!-- Retry configuration for flaky NVD API -->
+                            <nvdMaxRetryCount>5</nvdMaxRetryCount>
+                            <nvdApiDelay>6000</nvdApiDelay>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>security-dependency-check</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>aggregate</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+    </profiles>
+
 </project>
+

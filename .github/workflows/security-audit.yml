@@ -1,0 +1,186 @@
+name: Weekly Security Audit
+
+on:
+  # Every Monday at 02:00 UTC
+  schedule:
+    - cron: '0 2 * * 1'
+  # Allow manual trigger at any time
+  workflow_dispatch:
+    inputs:
+      fail_on_cvss:
+        description: 'Minimum CVSS score to fail build (0–10, default 7)'
+        required: false
+        default: '7'
+
+env:
+  JAVA_VERSION: '21'
+  MAVEN_OPTS: >-
+    -Xmx1536m
+    -Dhttps.protocols=TLSv1.2
+    -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=WARN
+    -Djava.awt.headless=true
+  WORKING_DIR: booking-system
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 1: Full OWASP Dependency Check across all modules
+  # ─────────────────────────────────────────────────────────────────────────────
+  owasp-full-audit:
+    name: OWASP Full Dependency Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+
+      - name: Cache Maven local repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      # Cache OWASP NVD data — avoids re-downloading the full 500MB DB every week
+      - name: Cache OWASP NVD database
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: ${{ runner.os }}-owasp-nvd-weekly-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-owasp-nvd-weekly-
+            ${{ runner.os }}-owasp-nvd-
+
+      - name: Run OWASP Dependency-Check (full scan)
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          CVSS_THRESHOLD=${{ github.event.inputs.fail_on_cvss || '7' }}
+          echo "Running OWASP audit with CVSS threshold: $CVSS_THRESHOLD"
+          
+          mvn verify \
+            -P security-scan \
+            --batch-mode \
+            --no-transfer-progress \
+            -DskipTests=true \
+            -DfailBuildOnCVSS=$CVSS_THRESHOLD \
+            -Dformat=HTML,JSON \
+            ${NVD_API_KEY:+-DnvdApiKey=$NVD_API_KEY} \
+            || echo "OWASP_FAILED=true" >> $GITHUB_ENV
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+
+      - name: Upload full audit HTML report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: owasp-full-audit-report-${{ github.run_id }}
+          path: |
+            booking-system/**/target/dependency-check-report.html
+            booking-system/**/target/dependency-check-report.json
+          retention-days: 90
+
+      - name: Parse vulnerability count
+        if: always()
+        id: vuln-count
+        run: |
+          # Count critical (CVSS >= 7) vulnerabilities from JSON reports
+          CRITICAL=0
+          for f in booking-system/**/target/dependency-check-report.json; do
+            if [ -f "$f" ]; then
+              COUNT=$(python3 -c "
+          import json, sys
+          try:
+              data = json.load(open('$f'))
+              deps = data.get('dependencies', [])
+              count = sum(
+                  1 for d in deps
+                  for v in d.get('vulnerabilities', [])
+                  if float(v.get('cvssv3', {}).get('baseScore', v.get('cvssv2', {}).get('score', 0)) or 0) >= 7
+              )
+              print(count)
+          except Exception as e:
+              print(0)
+          " 2>/dev/null || echo 0)
+              CRITICAL=$((CRITICAL + COUNT))
+            fi
+          done
+          echo "critical_count=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "Found $CRITICAL critical vulnerabilities (CVSS >= 7)"
+
+      - name: Create GitHub Issue for critical vulnerabilities
+        if: always() && steps.vuln-count.outputs.critical_count != '0' && env.OWASP_FAILED == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const criticalCount = '${{ steps.vuln-count.outputs.critical_count }}';
+            const runUrl = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+            const today = new Date().toISOString().split('T')[0];
+
+            // Check if an open issue already exists for this week
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'security,dependency-vulnerability',
+            });
+
+            const existingIssue = issues.find(i =>
+              i.title.includes('Security Audit') && i.title.includes('Critical CVE')
+            );
+
+            const body = `## 🔐 Weekly Security Audit — Critical CVE Alert
+
+            **Date**: ${today}
+            **Critical Vulnerabilities Found**: ${criticalCount} (CVSS ≥ 7)
+
+            ### Details
+            The automated OWASP Dependency-Check scan has detected **${criticalCount} critical vulnerability/vulnerabilities** in the VibeCheck dependency tree.
+
+            📋 **Full Report**: [View in GitHub Actions](${runUrl})
+
+            ### Action Required
+            1. Download the OWASP audit report artifact from the [workflow run](${runUrl})
+            2. Review each critical CVE and identify affected dependencies
+            3. Upgrade affected dependencies or apply workarounds
+            4. Re-run the security scan to confirm remediation
+            5. Close this issue once all critical CVEs are resolved
+
+            ### Labels
+            This issue was automatically created by the Weekly Security Audit workflow.
+
+            ---
+            > 🤖 *Auto-created by [Weekly Security Audit workflow](${runUrl})*`;
+
+            if (existingIssue) {
+              // Update existing issue with new count
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: `**Update ${today}**: Weekly scan found ${criticalCount} critical CVEs. [View report](${runUrl}).`,
+              });
+              console.log(`Updated existing issue #${existingIssue.number}`);
+            } else {
+              const { data: issue } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `🔐 Security Audit — Critical CVE Alert (${today})`,
+                body,
+                labels: ['security', 'dependency-vulnerability'],
+              });
+              console.log(`Created issue #${issue.number}: ${issue.html_url}`);
+            }
+
+      - name: Final status
+        if: env.OWASP_FAILED == 'true'
+        run: |
+          echo "❌ OWASP audit failed. ${{ steps.vuln-count.outputs.critical_count }} critical CVE(s) found."
+          echo "A GitHub issue has been created. Please remediate before merging."
+          exit 1

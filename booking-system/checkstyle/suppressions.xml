@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<!--
+  Checkstyle suppressions for VibeCheck
+
+  Suppressed patterns:
+  - *MapperImpl.java  — MapStruct auto-generated mapper implementations
+  - **/target/**      — Any generated code in target directories
+  - *Application.java — Spring Boot main classes (minimal code, style flexible)
+  - *Test.java        — Test classes (relaxed naming rules in tests)
+-->
+<!DOCTYPE suppressions PUBLIC
+    "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+    "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+
+<suppressions>
+
+  <!-- MapStruct generated mapper implementations -->
+  <suppress files=".*MapperImpl\.java" checks=".*"/>
+
+  <!-- Generated code in target directories -->
+  <suppress files="[/\\]target[/\\]" checks=".*"/>
+
+  <!-- Spring Boot application entry-points -->
+  <suppress files=".*Application\.java" checks="MemberName|LocalVariableName"/>
+
+  <!-- Test classes: relax member/parameter name rules -->
+  <suppress files=".*Test\.java" checks="MemberName|MethodName|ParameterName|LocalVariableName"/>
+
+  <!-- DTOs and records: single-field records are common -->
+  <suppress files=".*Request\.java|.*Response\.java|.*Dto\.java" checks="MethodLength"/>
+
+  <!-- Security/crypto classes: long method bodies are acceptable -->
+  <suppress files=".*Security.*\.java|.*Jwt.*\.java|.*Hmac.*\.java" checks="MethodLength"/>
+
+  <!-- Kafka consumer/producer: verbose configuration is expected -->
+  <suppress files=".*Config\.java|.*Configuration\.java" checks="MethodLength,ParameterNumber"/>
+
+  <!-- Flyway migration SQL files — not Java, no checks -->
+  <suppress files=".*\.sql" checks=".*"/>
+
+</suppressions>

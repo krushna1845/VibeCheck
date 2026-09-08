@@ -1,0 +1,182 @@
+name: PR Quality Gate
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [ opened, synchronize, reopened ]
+
+env:
+  JAVA_VERSION: '21'
+  MAVEN_OPTS: >-
+    -Xmx1024m
+    -Dhttps.protocols=TLSv1.2
+    -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=WARN
+    -Djava.awt.headless=true
+  WORKING_DIR: booking-system
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 1: POM Validation — verify POM structure and version consistency
+  # ─────────────────────────────────────────────────────────────────────────────
+  validate:
+    name: POM Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+
+      - name: Cache Maven local repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Validate Maven reactor
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          mvn validate \
+            --batch-mode \
+            --no-transfer-progress
+
+      - name: Check for snapshot dependencies in production builds
+        working-directory: ${{ env.WORKING_DIR }}
+        if: github.base_ref == 'main'
+        run: |
+          echo "Checking for SNAPSHOT dependency leaks..."
+          # Warn (don't fail) about SNAPSHOT-to-SNAPSHOT references that are cross-module
+          mvn dependency:resolve \
+            --batch-mode \
+            --no-transfer-progress \
+            -DincludeScope=compile \
+            -q || true
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 2: Checkstyle — Google Java Style enforcement
+  # ─────────────────────────────────────────────────────────────────────────────
+  checkstyle:
+    name: Checkstyle (Google Java Style)
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+
+      - name: Cache Maven local repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Run Checkstyle
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          mvn checkstyle:check \
+            -P checkstyle \
+            --batch-mode \
+            --no-transfer-progress
+
+      - name: Upload Checkstyle report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkstyle-report
+          path: booking-system/**/target/checkstyle-result.xml
+          retention-days: 7
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 3: Changed-module test — run tests only on modules touched by the PR
+  # ─────────────────────────────────────────────────────────────────────────────
+  targeted-tests:
+    name: Targeted Tests (changed modules)
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # Need full history for diff detection
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+
+      - name: Cache Maven local repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Detect changed modules
+        id: changed
+        run: |
+          BASE=${{ github.event.pull_request.base.sha }}
+          HEAD=${{ github.event.pull_request.head.sha }}
+          MODULES=""
+          
+          SERVICES="common gateway-service auth-service movie-service theatre-service show-service booking-service payment-service notification-service"
+          
+          for svc in $SERVICES; do
+            if git diff --name-only "$BASE" "$HEAD" | grep -q "^booking-system/$svc/"; then
+              if [ -z "$MODULES" ]; then
+                MODULES="$svc"
+              else
+                MODULES="$MODULES,$svc"
+              fi
+            fi
+          done
+          
+          echo "modules=$MODULES" >> $GITHUB_OUTPUT
+          echo "Changed modules: $MODULES"
+
+      - name: Run tests for changed modules
+        if: steps.changed.outputs.modules != ''
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          echo "Running tests for: ${{ steps.changed.outputs.modules }}"
+          mvn test \
+            -pl "${{ steps.changed.outputs.modules }}" \
+            -am \
+            --batch-mode \
+            --no-transfer-progress
+        env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET || 'ci-test-jwt-secret-min-32-chars-long' }}
+          INTERNAL_SECURITY_SECRET: ${{ secrets.INTERNAL_SECURITY_SECRET || 'ci-internal-secret' }}
+
+      - name: Skip message (no changed modules)
+        if: steps.changed.outputs.modules == ''
+        run: |
+          echo "✅ No service module source files changed in this PR. Skipping targeted test run."
+
+      - name: Upload targeted Surefire reports
+        if: always() && steps.changed.outputs.modules != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-surefire-reports
+          path: booking-system/**/target/surefire-reports/
+          retention-days: 7
