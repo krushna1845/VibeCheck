@@ -179,6 +179,9 @@ jobs:
     name: Docker Build — ${{ matrix.service }}
     runs-on: ubuntu-latest
     needs: build-and-test
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     strategy:
       fail-fast: false
       matrix:
@@ -228,21 +231,21 @@ jobs:
         # Only log in when BOTH credentials are configured as repository secrets.
         # This allows Docker image builds to run and validate locally in CI even
         # without Docker Hub credentials, while push only happens when secrets exist.
-        if: >
+        if: >-
           github.event_name == 'push' &&
           github.ref == 'refs/heads/main' &&
-          secrets.DOCKERHUB_USERNAME != '' &&
-          secrets.DOCKERHUB_TOKEN != ''
+          env.DOCKERHUB_USERNAME != '' &&
+          env.DOCKERHUB_TOKEN != ''
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ env.DOCKERHUB_TOKEN }}
 
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME || 'vibecheck' }}/vibecheck-${{ matrix.service }}
+          images: ${{ env.DOCKERHUB_USERNAME || 'vibecheck' }}/vibecheck-${{ matrix.service }}
           tags: |
             type=sha,prefix=sha-
             type=ref,event=branch
@@ -253,7 +256,7 @@ jobs:
         with:
           context: ${{ env.WORKING_DIR }}/${{ matrix.service }}
           file: ${{ env.WORKING_DIR }}/${{ matrix.service }}/Dockerfile
-          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.DOCKERHUB_USERNAME != '' }}
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && env.DOCKERHUB_USERNAME != '' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.service }}
