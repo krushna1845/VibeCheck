@@ -1,0 +1,16 @@
+apiVersion: v2
+name: vibecheck
+description: Production Kubernetes Helm Chart for VibeCheck Distributed Movie Booking Platform
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - movie-booking
+  - microservices
+  - spring-boot
+  - distributed-systems
+  - kafka
+  - redis
+  - mysql
+maintainers:
+  - name: VibeCheck Team

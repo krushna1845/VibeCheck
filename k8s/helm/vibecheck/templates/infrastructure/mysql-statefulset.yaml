@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "vibecheck.labels" . | nindent 4 }}
+    app.kubernetes.io/name: mysql
+    app.kubernetes.io/component: database
+spec:
+  serviceName: mysql
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mysql
+  template:
+    metadata:
+      labels:
+        {{- include "vibecheck.labels" . | nindent 8 }}
+        app.kubernetes.io/name: mysql
+        app.kubernetes.io/component: database
+    spec:
+      containers:
+        - name: mysql
+          image: "{{ .Values.infrastructure.mysql.image.repository }}:{{ .Values.infrastructure.mysql.image.tag }}"
+          imagePullPolicy: {{ .Values.infrastructure.mysql.image.pullPolicy }}
+          ports:
+            - name: mysql
+              containerPort: {{ .Values.infrastructure.mysql.port }}
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: vibecheck-secrets
+                  key: DB_ROOT_PASSWORD
+          resources:
+            {{- toYaml .Values.infrastructure.mysql.resources | nindent 12 }}
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+            - name: init-script
+              mountPath: /docker-entrypoint-initdb.d
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "mysqladmin ping -h localhost -uroot -p${MYSQL_ROOT_PASSWORD}"
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "mysqladmin ping -h localhost -uroot -p${MYSQL_ROOT_PASSWORD}"
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+      volumes:
+        - name: init-script
+          configMap:
+            name: mysql-init-config
+        {{- if not .Values.infrastructure.mysql.persistence.enabled }}
+        - name: mysql-data
+          emptyDir: {}
+        {{- end }}
+  {{- if .Values.infrastructure.mysql.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: mysql-data
+      spec:
+        accessModes: [ {{ .Values.infrastructure.mysql.persistence.accessMode | quote }} ]
+        {{- if .Values.infrastructure.mysql.persistence.storageClass }}
+        storageClassName: {{ .Values.infrastructure.mysql.persistence.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.infrastructure.mysql.persistence.size }}
+  {{- end }}

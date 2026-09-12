@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zookeeper
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "vibecheck.labels" . | nindent 4 }}
+    app.kubernetes.io/name: zookeeper
+    app.kubernetes.io/component: coordination
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zookeeper
+  template:
+    metadata:
+      labels:
+        {{- include "vibecheck.labels" . | nindent 8 }}
+        app.kubernetes.io/name: zookeeper
+        app.kubernetes.io/component: coordination
+    spec:
+      containers:
+        - name: zookeeper
+          image: "{{ .Values.infrastructure.zookeeper.image.repository }}:{{ .Values.infrastructure.zookeeper.image.tag }}"
+          imagePullPolicy: {{ .Values.infrastructure.zookeeper.image.pullPolicy }}
+          ports:
+            - name: client
+              containerPort: {{ .Values.infrastructure.zookeeper.port }}
+          env:
+            - name: ZOOKEEPER_CLIENT_PORT
+              value: "2181"
+            - name: ZOOKEEPER_TICK_TIME
+              value: "2000"
+          resources:
+            {{- toYaml .Values.infrastructure.zookeeper.resources | nindent 12 }}
+          readinessProbe:
+            tcpSocket:
+              port: 2181
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 2181
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 5

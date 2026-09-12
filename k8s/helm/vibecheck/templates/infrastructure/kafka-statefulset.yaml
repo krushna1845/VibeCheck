@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "vibecheck.labels" . | nindent 4 }}
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/component: messaging
+spec:
+  serviceName: kafka
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kafka
+  template:
+    metadata:
+      labels:
+        {{- include "vibecheck.labels" . | nindent 8 }}
+        app.kubernetes.io/name: kafka
+        app.kubernetes.io/component: messaging
+    spec:
+      containers:
+        - name: kafka
+          image: "{{ .Values.infrastructure.kafka.image.repository }}:{{ .Values.infrastructure.kafka.image.tag }}"
+          imagePullPolicy: {{ .Values.infrastructure.kafka.image.pullPolicy }}
+          ports:
+            - name: kafka
+              containerPort: {{ .Values.infrastructure.kafka.port }}
+          env:
+            - name: KAFKA_BROKER_ID
+              value: "1"
+            - name: KAFKA_ZOOKEEPER_CONNECT
+              value: "zookeeper:2181"
+            - name: KAFKA_ADVERTISED_LISTENERS
+              value: "PLAINTEXT://kafka:9092"
+            - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+              value: "PLAINTEXT:PLAINTEXT"
+            - name: KAFKA_INTER_BROKER_LISTENER_NAME
+              value: "PLAINTEXT"
+            - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+              value: "1"
+            - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
+              value: "true"
+          resources:
+            {{- toYaml .Values.infrastructure.kafka.resources | nindent 12 }}
+          volumeMounts:
+            - name: kafka-data
+              mountPath: /var/lib/kafka/data
+          readinessProbe:
+            tcpSocket:
+              port: 9092
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: 9092
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+      {{- if not .Values.infrastructure.kafka.persistence.enabled }}
+      volumes:
+        - name: kafka-data
+          emptyDir: {}
+      {{- end }}
+  {{- if .Values.infrastructure.kafka.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: kafka-data
+      spec:
+        accessModes: [ {{ .Values.infrastructure.kafka.persistence.accessMode | quote }} ]
+        {{- if .Values.infrastructure.kafka.persistence.storageClass }}
+        storageClassName: {{ .Values.infrastructure.kafka.persistence.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.infrastructure.kafka.persistence.size }}
+  {{- end }}

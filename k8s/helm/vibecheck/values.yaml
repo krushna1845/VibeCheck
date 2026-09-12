@@ -1,0 +1,292 @@
+global:
+  namespace: vibecheck
+  environment: production
+  imageRegistry: "docker.io"
+  imagePullPolicy: IfNotPresent
+
+# Shared Secrets and Perimeter Security
+secrets:
+  dbRootPassword: "ChangeMeInProd@123"
+  jwtSecret: "9a4f2c8d7e6b5a4c3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a"
+  internalSecuritySecret: "vibecheck-internal-perimeter-secret-key-m17"
+  payment:
+    provider: "MOCK"
+    webhookSecret: "test-webhook-secret"
+    razorpayKeyId: "rzp_test_key"
+    razorpayKeySecret: "rzp_test_secret"
+    razorpayWebhookSecret: "rzp_test_webhook_secret"
+    stripeApiKey: "sk_test_key"
+    stripeWebhookSecret: "whsec_test_webhook_secret"
+  mail:
+    host: "smtp.gmail.com"
+    port: 587
+    username: "noreply@vibecheck.com"
+    password: "mailpassword"
+    from: "noreply@vibecheck.com"
+    smsEnabled: false
+    smsProvider: "MOCK"
+
+# Stateful Infrastructure Components
+infrastructure:
+  mysql:
+    enabled: true
+    image:
+      repository: mysql
+      tag: "8.0"
+      pullPolicy: IfNotPresent
+    port: 3306
+    persistence:
+      enabled: true
+      storageClass: ""
+      accessMode: ReadWriteOnce
+      size: 5Gi
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+
+  redis:
+    enabled: true
+    image:
+      repository: redis
+      tag: "7-alpine"
+      pullPolicy: IfNotPresent
+    port: 6379
+    persistence:
+      enabled: true
+      storageClass: ""
+      accessMode: ReadWriteOnce
+      size: 2Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  zookeeper:
+    enabled: true
+    image:
+      repository: confluentinc/cp-zookeeper
+      tag: "7.5.0"
+      pullPolicy: IfNotPresent
+    port: 2181
+    persistence:
+      enabled: true
+      storageClass: ""
+      accessMode: ReadWriteOnce
+      size: 2Gi
+    resources:
+      requests:
+        cpu: 150m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  kafka:
+    enabled: true
+    image:
+      repository: confluentinc/cp-kafka
+      tag: "7.5.0"
+      pullPolicy: IfNotPresent
+    port: 9092
+    internalPort: 29092
+    persistence:
+      enabled: true
+      storageClass: ""
+      accessMode: ReadWriteOnce
+      size: 5Gi
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+
+# Stateless Microservices
+services:
+  gateway:
+    name: gateway-service
+    replicaCount: 2
+    image:
+      repository: vibecheck-gateway
+      tag: latest
+      pullPolicy: IfNotPresent
+    port: 8079
+    resources:
+      requests:
+        cpu: 200m
+        memory: 384Mi
+      limits:
+        cpu: 800m
+        memory: 768Mi
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 5
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 80
+
+  auth:
+    name: auth-service
+    replicaCount: 2
+    image:
+      repository: vibecheck-auth
+      tag: latest
+      pullPolicy: IfNotPresent
+    port: 8080
+    resources:
+      requests:
+        cpu: 200m
+        memory: 384Mi
+      limits:
+        cpu: 800m
+        memory: 768Mi
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 4
+      targetCPUUtilizationPercentage: 70
+
+  movie:
+    name: movie-service
+    replicaCount: 2
+    image:
+      repository: vibecheck-movie
+      tag: latest
+      pullPolicy: IfNotPresent
+    port: 8081
+    resources:
+      requests:
+        cpu: 150m
+        memory: 384Mi
+      limits:
+        cpu: 600m
+        memory: 640Mi
+    autoscaling:
+      enabled: false
+
+  theatre:
+    name: theatre-service
+    replicaCount: 2
+    image:
+      repository: vibecheck-theatre
+      tag: latest
+      pullPolicy: IfNotPresent
+    port: 8082
+    resources:
+      requests:
+        cpu: 150m
+        memory: 384Mi
+      limits:
+        cpu: 600m
+        memory: 640Mi
+    autoscaling:
+      enabled: false
+
+  show:
+    name: show-service
+    replicaCount: 2
+    image:
+      repository: vibecheck-show
+      tag: latest
+      pullPolicy: IfNotPresent
+    port: 8083
+    resources:
+      requests:
+        cpu: 200m
+        memory: 384Mi
+      limits:
+        cpu: 800m
+        memory: 768Mi
+    autoscaling:
+      enabled: false
+
+  booking:
+    name: booking-service
+    replicaCount: 2
+    image:
+      repository: vibecheck-booking
+      tag: latest
+      pullPolicy: IfNotPresent
+    port: 8084
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 6
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 80
+
+  payment:
+    name: payment-service
+    replicaCount: 2
+    image:
+      repository: vibecheck-payment
+      tag: latest
+      pullPolicy: IfNotPresent
+    port: 8085
+    resources:
+      requests:
+        cpu: 150m
+        memory: 384Mi
+      limits:
+        cpu: 600m
+        memory: 640Mi
+    autoscaling:
+      enabled: false
+
+  notification:
+    name: notification-service
+    replicaCount: 2
+    image:
+      repository: vibecheck-notification
+      tag: latest
+      pullPolicy: IfNotPresent
+    port: 8086
+    resources:
+      requests:
+        cpu: 150m
+        memory: 384Mi
+      limits:
+        cpu: 600m
+        memory: 640Mi
+    autoscaling:
+      enabled: false
+
+# Ingress Configuration
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "15"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  hosts:
+    - host: vibecheck.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Microservice Zero-Trust Network Isolation
+networkPolicy:
+  enabled: true
+
+# RollingUpdate & Pod Anti-Affinity Defaults
+podAntiAffinity:
+  enabled: true

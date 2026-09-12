@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-init-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "vibecheck.labels" . | nindent 4 }}
+data:
+  init-mysql.sql: |
+    CREATE DATABASE IF NOT EXISTS vibecheck_auth;
+    CREATE DATABASE IF NOT EXISTS vibecheck_movie;
+    CREATE DATABASE IF NOT EXISTS vibecheck_theatre;
+    CREATE DATABASE IF NOT EXISTS vibecheck_show;
+    CREATE DATABASE IF NOT EXISTS vibecheck_booking;
+    CREATE DATABASE IF NOT EXISTS vibecheck_payment;
+    CREATE DATABASE IF NOT EXISTS vibecheck_notification;

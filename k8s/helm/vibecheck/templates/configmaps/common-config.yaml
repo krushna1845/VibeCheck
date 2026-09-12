@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vibecheck-common-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "vibecheck.labels" . | nindent 4 }}
+data:
+  SPRING_PROFILES_ACTIVE: {{ .Values.global.environment | quote }}
+  SPRING_REDIS_HOST: "redis"
+  SPRING_REDIS_PORT: "6379"
+  SPRING_DATA_REDIS_HOST: "redis"
+  SPRING_DATA_REDIS_PORT: "6379"
+  MANAGEMENT_HEALTH_REDIS_ENABLED: "false"
+  MANAGEMENT_HEALTH_REDISREACTIVE_ENABLED: "false"
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+  SHOW_SERVICE_URL: "http://show-service:8083"
+  PAYMENT_GATEWAY_PROVIDER: {{ .Values.secrets.payment.provider | quote }}
+  SMS_ENABLED: {{ .Values.secrets.mail.smsEnabled | quote }}
+  SMS_PROVIDER: {{ .Values.secrets.mail.smsProvider | quote }}
