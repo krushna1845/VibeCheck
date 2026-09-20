@@ -20,3 +20,7 @@ data:
   SMS_ENABLED: {{ .Values.secrets.mail.smsEnabled | quote }}
   SMS_PROVIDER: {{ .Values.secrets.mail.smsProvider | quote }}
   JAVA_TOOL_OPTIONS: "-Xms96m -Xmx220m -XX:+UseSerialGC -XX:TieredStopAtLevel=1"
+  # Prometheus / Observability
+  MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: "health,info,prometheus,metrics"
+  MANAGEMENT_ENDPOINT_PROMETHEUS_ENABLED: "true"
+  MANAGEMENT_METRICS_EXPORT_PROMETHEUS_ENABLED: "true"

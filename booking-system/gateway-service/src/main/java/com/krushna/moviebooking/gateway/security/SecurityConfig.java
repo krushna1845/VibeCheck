@@ -63,8 +63,8 @@ public class SecurityConfig {
                 // 2. Gateway health, route inspection, fallback endpoints
                 .requestMatchers("/gateway/**", "/fallback/**").permitAll()
 
-                // 3. Actuator health & info (restricted to prevent sensitive leakage)
-                .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                // 3. Actuator health, info, and prometheus metrics
+                .requestMatchers("/actuator/health", "/actuator/info", "/actuator/prometheus").permitAll()
 
                 // 4. OpenAPI / Swagger documentation (development/local only)
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()

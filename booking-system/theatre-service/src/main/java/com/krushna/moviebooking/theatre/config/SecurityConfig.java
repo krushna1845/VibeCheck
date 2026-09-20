@@ -35,8 +35,8 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Actuator health & info
-                .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                // Actuator health, info, and prometheus metrics
+                .requestMatchers("/actuator/health", "/actuator/info", "/actuator/prometheus").permitAll()
 
                 // Swagger UI & OpenAPI (development/local)
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()

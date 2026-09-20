@@ -39,8 +39,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Explicit public authentication endpoints
                 .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
-                // Actuator health and info
-                .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                // Actuator health, info, and prometheus metrics
+                .requestMatchers("/actuator/health", "/actuator/info", "/actuator/prometheus").permitAll()
                 // Swagger UI & OpenAPI (development/local)
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 // All other endpoints (me, validate, logout, users) require authentication

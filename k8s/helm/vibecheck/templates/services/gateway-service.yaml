@@ -6,6 +6,10 @@ metadata:
   labels:
     {{- include "vibecheck.labels" . | nindent 4 }}
     app.kubernetes.io/name: gateway-service
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: "/actuator/prometheus"
+    prometheus.io/port: "{{ .Values.services.gateway.port }}"
 spec:
   type: ClusterIP
   ports:

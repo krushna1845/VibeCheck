@@ -96,6 +96,10 @@ metadata:
   labels:
     {{- include "vibecheck.labels" . | nindent 4 }}
     app.kubernetes.io/name: booking-service
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: "/actuator/prometheus"
+    prometheus.io/port: "{{ .Values.services.booking.port }}"
 spec:
   type: ClusterIP
   ports:

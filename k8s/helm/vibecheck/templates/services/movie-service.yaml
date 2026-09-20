@@ -95,6 +95,10 @@ metadata:
   labels:
     {{- include "vibecheck.labels" . | nindent 4 }}
     app.kubernetes.io/name: movie-service
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: "/actuator/prometheus"
+    prometheus.io/port: "{{ .Values.services.movie.port }}"
 spec:
   type: ClusterIP
   ports:

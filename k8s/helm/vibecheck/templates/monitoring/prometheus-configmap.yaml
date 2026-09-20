@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "vibecheck.labels" . | nindent 4 }}
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/name: prometheus
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      scrape_timeout: 10s
+
+    scrape_configs:
+
+      # --- Gateway Service ---
+      - job_name: 'gateway-service'
+        metrics_path: '/actuator/prometheus'
+        static_configs:
+          - targets: ['gateway-service:{{ .Values.services.gateway.port }}']
+            labels:
+              service: 'gateway'
+              namespace: '{{ .Values.global.namespace }}'
+
+      # --- Auth Service ---
+      - job_name: 'auth-service'
+        metrics_path: '/actuator/prometheus'
+        static_configs:
+          - targets: ['auth-service:{{ .Values.services.auth.port }}']
+            labels:
+              service: 'auth'
+              namespace: '{{ .Values.global.namespace }}'
+
+      # --- Movie Service ---
+      - job_name: 'movie-service'
+        metrics_path: '/actuator/prometheus'
+        static_configs:
+          - targets: ['movie-service:{{ .Values.services.movie.port }}']
+            labels:
+              service: 'movie'
+              namespace: '{{ .Values.global.namespace }}'
+
+      # --- Theatre Service ---
+      - job_name: 'theatre-service'
+        metrics_path: '/actuator/prometheus'
+        static_configs:
+          - targets: ['theatre-service:{{ .Values.services.theatre.port }}']
+            labels:
+              service: 'theatre'
+              namespace: '{{ .Values.global.namespace }}'
+
+      # --- Show Service ---
+      - job_name: 'show-service'
+        metrics_path: '/actuator/prometheus'
+        static_configs:
+          - targets: ['show-service:{{ .Values.services.show.port }}']
+            labels:
+              service: 'show'
+              namespace: '{{ .Values.global.namespace }}'
+
+      # --- Booking Service ---
+      - job_name: 'booking-service'
+        metrics_path: '/actuator/prometheus'
+        static_configs:
+          - targets: ['booking-service:{{ .Values.services.booking.port }}']
+            labels:
+              service: 'booking'
+              namespace: '{{ .Values.global.namespace }}'
+
+      # --- Payment Service ---
+      - job_name: 'payment-service'
+        metrics_path: '/actuator/prometheus'
+        static_configs:
+          - targets: ['payment-service:{{ .Values.services.payment.port }}']
+            labels:
+              service: 'payment'
+              namespace: '{{ .Values.global.namespace }}'
+
+      # --- Notification Service ---
+      - job_name: 'notification-service'
+        metrics_path: '/actuator/prometheus'
+        static_configs:
+          - targets: ['notification-service:{{ .Values.services.notification.port }}']
+            labels:
+              service: 'notification'
+              namespace: '{{ .Values.global.namespace }}'
