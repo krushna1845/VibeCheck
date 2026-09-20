@@ -2,7 +2,7 @@
 # VibeCheck Platform - Kubernetes Cluster Smoke Test
 # ==============================================================================
 param(
-    [string]$BaseUrl = "http://localhost:8079"
+    [string]$BaseUrl = "http://127.0.0.1:8079"
 )
 
 $ErrorActionPreference = "Stop"
@@ -24,7 +24,7 @@ try {
     }
 } catch {
     Write-Host "FAIL: Unable to reach Gateway at $BaseUrl/actuator/health" -ForegroundColor Red
-    Write-Host "Hint: Ensure port-forwarding is running: kubectl port-forward svc/gateway-service 8079:8079 -n vibecheck" -ForegroundColor Yellow
+    Write-Host "Hint: Ensure port-forwarding is active: kubectl port-forward svc/gateway-service 8079:8079 -n vibecheck" -ForegroundColor Yellow
     exit 1
 }
 
@@ -35,16 +35,19 @@ $testPassword = "Password@123"
 
 Write-Host "`n[Test 2] Testing User Registration ($testEmail)..." -ForegroundColor Yellow
 $regBody = @{
-    fullName = "Kubernetes Smoke Test"
-    email = $testEmail
-    password = $testPassword
+    email       = $testEmail
+    password    = $testPassword
+    firstName   = "Kubernetes"
+    lastName    = "Tester"
     phoneNumber = "+1555000$([math]::Abs($timestamp.GetHashCode()) % 10000)"
+    roles       = @("ROLE_CUSTOMER")
 } | ConvertTo-Json
 
 try {
-    $regResponse = Invoke-RestMethod -Uri "$BaseUrl/auth/register" -Method Post `
+    $regResponse = Invoke-RestMethod -Uri "$BaseUrl/api/v1/auth/register" -Method Post `
         -ContentType "application/json" -Body $regBody -TimeoutSec 15
-    Write-Host "PASS: Registered user with ID: $($regResponse.data.id)" -ForegroundColor Green
+    $userId = if ($regResponse.user -and $regResponse.user.id) { $regResponse.user.id } else { $regResponse.id }
+    Write-Host "PASS: Registered user with ID: $userId" -ForegroundColor Green
 } catch {
     Write-Host "FAIL: User registration failed: $_" -ForegroundColor Red
     exit 1
@@ -53,18 +56,21 @@ try {
 # 3. User Authentication (JWT acquisition)
 Write-Host "`n[Test 3] Testing User Authentication & Token Acquisition..." -ForegroundColor Yellow
 $loginBody = @{
-    email = $testEmail
+    email    = $testEmail
     password = $testPassword
 } | ConvertTo-Json
 
 try {
-    $loginResponse = Invoke-RestMethod -Uri "$BaseUrl/auth/login" -Method Post `
+    $loginResponse = Invoke-RestMethod -Uri "$BaseUrl/api/v1/auth/login" -Method Post `
         -ContentType "application/json" -Body $loginBody -TimeoutSec 15
-    $jwtToken = $loginResponse.data.token
-    if (-not $jwtToken) {
-        $jwtToken = $loginResponse.data.accessToken
+    $jwtToken = if ($loginResponse.accessToken) { $loginResponse.accessToken } else { $loginResponse.token }
+    if (-not $jwtToken -and $loginResponse.data) {
+        $jwtToken = if ($loginResponse.data.accessToken) { $loginResponse.data.accessToken } else { $loginResponse.data.token }
     }
-    Write-Host "PASS: Successfully acquired JWT token: $($jwtToken.Substring(0, 20))..." -ForegroundColor Green
+    if (-not $jwtToken) {
+        throw "Access token not found in response: $(ConvertTo-Json $loginResponse -Depth 3)"
+    }
+    Write-Host "PASS: Successfully acquired JWT token: $($jwtToken.Substring(0, 25))..." -ForegroundColor Green
 } catch {
     Write-Host "FAIL: Login failed: $_" -ForegroundColor Red
     exit 1
@@ -77,19 +83,29 @@ $headers = @{
 }
 
 try {
-    $moviesResponse = Invoke-RestMethod -Uri "$BaseUrl/movies" -Method Get -Headers $headers -TimeoutSec 15
+    $moviesResponse = Invoke-RestMethod -Uri "$BaseUrl/api/v1/movies" -Method Get -Headers $headers -TimeoutSec 15
     Write-Host "PASS: Successfully routed authenticated request to movie-service via Gateway!" -ForegroundColor Green
 } catch {
     Write-Host "FAIL: Movie-service call failed: $_" -ForegroundColor Red
     exit 1
 }
 
-# 5. Cluster Pod Status Summary
-Write-Host "`n[Test 5] Checking Pod Status in vibecheck namespace..." -ForegroundColor Yellow
-$pods = kubectl get pods -n vibecheck -o json | ConvertFrom-Json
+# 5. Public / Downstream Theatre Catalog Endpoint Check
+Write-Host "`n[Test 5] Testing Theatres Routing via Gateway..." -ForegroundColor Yellow
+try {
+    $theatresResponse = Invoke-RestMethod -Uri "$BaseUrl/api/v1/theatres" -Method Get -Headers $headers -TimeoutSec 15
+    Write-Host "PASS: Successfully routed request to theatre-service via Gateway!" -ForegroundColor Green
+} catch {
+    Write-Host "FAIL: Theatres request failed: $_" -ForegroundColor Red
+    exit 1
+}
+
+# 6. Cluster Pod Status Summary
+Write-Host "`n[Test 6] Checking Pod Status in vibecheck namespace..." -ForegroundColor Yellow
+$podsJson = kubectl get pods -n vibecheck -o json | ConvertFrom-Json
 $unhealthyPods = @()
 
-foreach ($pod in $pods.items) {
+foreach ($pod in $podsJson.items) {
     $podName = $pod.metadata.name
     $phase = $pod.status.phase
     $readyConditions = $pod.status.conditions | Where-Object { $_.type -eq "Ready" }
@@ -101,7 +117,7 @@ foreach ($pod in $pods.items) {
 }
 
 if ($unhealthyPods.Count -eq 0) {
-    Write-Host "PASS: All $($pods.items.Count) pods in vibecheck namespace are Running and Ready!" -ForegroundColor Green
+    Write-Host "PASS: All $($podsJson.items.Count) pods in vibecheck namespace are Running and Ready!" -ForegroundColor Green
 } else {
     Write-Host "WARN: Some pods are not ready yet:" -ForegroundColor Yellow
     $unhealthyPods | ForEach-Object { Write-Host "  - $_" -ForegroundColor Yellow }

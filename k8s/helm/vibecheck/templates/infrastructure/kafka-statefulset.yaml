@@ -40,7 +40,7 @@ spec:
           command:
             - /bin/sh
             - -c
-            - "unset KAFKA_PORT && /etc/confluent/docker/run"
+            - "rm -f /var/lib/kafka/data/meta.properties && unset KAFKA_PORT && /etc/confluent/docker/run"
           ports:
             - name: kafka-port
               containerPort: {{ .Values.infrastructure.kafka.port }}
