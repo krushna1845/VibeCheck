@@ -290,3 +290,7 @@ networkPolicy:
 # RollingUpdate & Pod Anti-Affinity Defaults
 podAntiAffinity:
   enabled: true
+
+deploymentStrategy:
+  maxSurge: 25%
+  maxUnavailable: 0

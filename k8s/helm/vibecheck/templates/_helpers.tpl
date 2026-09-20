@@ -47,3 +47,41 @@ Usage: {{ include "vibecheck.selectorLabels" (dict "context" . "serviceName" "au
 app.kubernetes.io/name: {{ .serviceName }}
 app.kubernetes.io/instance: {{ .context.Release.Name }}
 {{- end }}
+
+{{/*
+initContainer: wait for MySQL to be connectable on port 3306
+Usage: {{- include "vibecheck.waitForMySQL" . | nindent 8 }}
+*/}}
+{{- define "vibecheck.waitForMySQL" -}}
+- name: wait-for-mysql
+  image: busybox:1.36
+  command:
+    - /bin/sh
+    - -c
+    - |
+      echo "Waiting for MySQL at mysql:3306..."
+      until nc -z mysql 3306; do
+        echo "MySQL not ready, retrying in 3s..."
+        sleep 3
+      done
+      echo "MySQL is up!"
+{{- end }}
+
+{{/*
+initContainer: wait for Kafka to be connectable on port 9092
+Usage: {{- include "vibecheck.waitForKafka" . | nindent 8 }}
+*/}}
+{{- define "vibecheck.waitForKafka" -}}
+- name: wait-for-kafka
+  image: busybox:1.36
+  command:
+    - /bin/sh
+    - -c
+    - |
+      echo "Waiting for Kafka at kafka:9092..."
+      until nc -z kafka 9092; do
+        echo "Kafka not ready, retrying in 3s..."
+        sleep 3
+      done
+      echo "Kafka is up!"
+{{- end }}

@@ -39,7 +39,8 @@ spec:
             - name: mysql-data
               mountPath: /var/lib/mysql
             - name: init-script
-              mountPath: /docker-entrypoint-initdb.d
+              mountPath: /docker-entrypoint-initdb.d/init-mysql.sql
+              subPath: init-mysql.sql
           readinessProbe:
             exec:
               command:

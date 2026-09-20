@@ -11,6 +11,6 @@ spec:
   ports:
     - name: kafka
       port: {{ .Values.infrastructure.kafka.port }}
-      targetPort: kafka
+      targetPort: kafka-port
   selector:
     app.kubernetes.io/name: kafka

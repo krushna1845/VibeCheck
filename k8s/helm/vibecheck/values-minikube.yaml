@@ -1,7 +1,7 @@
 # Minikube-specific values override
 global:
   namespace: vibecheck
-  environment: local-minikube
+  environment: local
   imagePullPolicy: IfNotPresent
 
 secrets:
@@ -169,3 +169,7 @@ networkPolicy:
 
 podAntiAffinity:
   enabled: false
+
+deploymentStrategy:
+  maxSurge: 0
+  maxUnavailable: 1
