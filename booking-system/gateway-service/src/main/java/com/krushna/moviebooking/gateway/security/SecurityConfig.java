@@ -2,6 +2,7 @@ package com.krushna.moviebooking.gateway.security;
 
 import com.krushna.moviebooking.gateway.filter.CorrelationIdFilter;
 import com.krushna.moviebooking.gateway.filter.GatewayRequestLoggingFilter;
+import com.krushna.moviebooking.gateway.filter.RateLimitingFilter;
 import com.krushna.moviebooking.gateway.filter.ResponseHeaderFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -34,8 +35,9 @@ public class SecurityConfig {
     private final CorrelationIdFilter correlationIdFilter;
     private final GatewayRequestLoggingFilter requestLoggingFilter;
     private final ResponseHeaderFilter responseHeaderFilter;
+    private final RateLimitingFilter rateLimitingFilter;
 
-    @Value("${cors.allowed-origins:*}")
+    @Value("${cors.allowed-origins:http://localhost:3000,http://localhost:5173,http://localhost:80}")
     private String corsAllowedOrigins;
 
     @Bean
@@ -130,7 +132,8 @@ public class SecurityConfig {
             .addFilterBefore(correlationIdFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterAfter(requestLoggingFilter, CorrelationIdFilter.class)
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterAfter(responseHeaderFilter, GatewayJwtFilter.class);
+            .addFilterAfter(rateLimitingFilter, GatewayJwtFilter.class)
+            .addFilterAfter(responseHeaderFilter, RateLimitingFilter.class);
 
         return http.build();
     }

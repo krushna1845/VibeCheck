@@ -40,7 +40,7 @@ public class UserServiceClient {
      * Fetch user profile by userId. Returns a fallback profile on error.
      */
     public UserProfile getUserProfile(UUID userId) {
-        String url = properties.userService().baseUrl() + "/api/v1/users/" + userId;
+        String url = properties.userService().baseUrl() + "/api/v1/auth/users/" + userId;
 
         HttpHeaders headers = new HttpHeaders();
         headers.set(InternalAuthConstants.INTERNAL_SERVICE_HEADER, "notification-service");

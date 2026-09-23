@@ -139,9 +139,10 @@ public class RedisSeatLockServiceImpl implements SeatLockService {
      *
      * <p><b>WARNING</b>: This overload is unconditional — it deletes keys without verifying
      * ownership. Only use this for acquisition-rollback compensation paths where this JVM
-     * holds the lock token and is sure no other owner could have acquired the keys.
+     * @deprecated Use {@link #releaseLocksByToken(UUID, List, String)} or {@link #releaseLocks(UUID, List, UUID)} instead.
      */
     @Override
+    @Deprecated
     public void releaseLocks(UUID showId, List<UUID> seatIds) {
         log.warn("Unconditional releaseLocks called for showId: {}, seatCount: {} — verify caller is in acquisition rollback path only",
                 showId, seatIds != null ? seatIds.size() : 0);

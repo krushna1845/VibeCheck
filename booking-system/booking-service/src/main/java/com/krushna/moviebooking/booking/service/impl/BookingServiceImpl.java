@@ -167,13 +167,13 @@ public class BookingServiceImpl implements BookingService {
             log.info("Booking created successfully with reference: {} and id: {}", bookingReference, saved.getId());
 
         } catch (Exception ex) {
-            // BUG-FIX (Milestone 13): If any downstream call or DB write fails after Redis locks were
-            // acquired, release all seat locks immediately so other customers are not blocked
-            // for the full TTL window. Without this finally-block the seat would remain orphaned
-            // in Redis for up to 5 minutes even though no booking record was persisted.
-            log.error("Booking creation failed after Redis locks acquired for showId: {}. Releasing {} locks. Error: {}",
-                    request.showId(), request.showSeatIds().size(), ex.getMessage());
-            seatLockService.releaseLocks(request.showId(), request.showSeatIds());
+            // BUG-FIX (Milestone 13 & 26): If any downstream call or DB write fails after Redis locks were
+            // acquired, release all seat locks using the specific acquired lockToken. This owner-verified
+            // rollback guarantees that if another concurrent booking took the lock, their lock will never
+            // be wiped accidentally.
+            log.error("Booking creation failed after Redis locks acquired for showId: {}. Releasing {} locks with lockToken: {}. Error: {}",
+                    request.showId(), request.showSeatIds().size(), lockResponse.lockToken(), ex.getMessage());
+            seatLockService.releaseLocksByToken(request.showId(), request.showSeatIds(), lockResponse.lockToken());
             throw ex;
         }
 

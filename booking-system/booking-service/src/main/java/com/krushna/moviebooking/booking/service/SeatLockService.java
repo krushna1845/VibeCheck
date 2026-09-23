@@ -34,9 +34,9 @@ public interface SeatLockService {
      * lifecycle transitions (confirm, cancel, expire) where another user may have
      * acquired the same seats after the previous lock expired.
      *
-     * @param showId Show reference UUID
-     * @param seatIds List of show seat UUIDs to release
+     * @deprecated Use {@link #releaseLocksByToken(UUID, List, String)} or {@link #releaseLocks(UUID, List, UUID)} instead.
      */
+    @Deprecated
     void releaseLocks(UUID showId, List<UUID> seatIds);
 
     /**

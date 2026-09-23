@@ -166,6 +166,33 @@ class BookingServiceImplTest {
     }
 
     @Test
+    @DisplayName("createBooking releases locks by token when pricing or DB save fails")
+    void createBooking_ReleasesLocksByTokenOnFailure() {
+        BookingRequest request = BookingRequest.builder()
+                .userId(userId)
+                .showId(showId)
+                .showSeatIds(List.of(showSeatId))
+                .build();
+
+        String token = "test-lock-token-123";
+        SeatLockResponse lockResponse = SeatLockResponse.builder()
+                .success(true)
+                .lockToken(token)
+                .lockedSeatIds(List.of(showSeatId))
+                .build();
+
+        when(seatLockService.lockSeats(any())).thenReturn(lockResponse);
+        when(showClient.getShowSeatsByIds(any(), any())).thenThrow(new RuntimeException("Show service down"));
+
+        assertThatThrownBy(() -> bookingService.createBooking(request))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Show service down");
+
+        verify(seatLockService).releaseLocksByToken(eq(showId), eq(List.of(showSeatId)), eq(token));
+        verify(bookingRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("updateBooking applies patch changes to booking")
     void updateBooking_Success() {
         Booking booking = Booking.builder()

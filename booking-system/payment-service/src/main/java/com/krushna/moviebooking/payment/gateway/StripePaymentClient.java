@@ -104,6 +104,19 @@ public class StripePaymentClient implements PaymentClient {
             return false;
         }
 
+        try {
+            long webhookTime = Long.parseLong(timestamp);
+            long currentTime = Instant.now().getEpochSecond();
+            if (Math.abs(currentTime - webhookTime) > 300) {
+                log.warn("[StripeGateway] Stripe webhook timestamp out of tolerance window (300s): webhookTime={}, currentTime={}",
+                        webhookTime, currentTime);
+                return false;
+            }
+        } catch (NumberFormatException e) {
+            log.warn("[StripeGateway] Invalid Stripe webhook timestamp format: {}", timestamp);
+            return false;
+        }
+
         String webhookSecret = properties.getStripe().getWebhookSecret();
         String payload = timestamp + "." + rawBody;
         return HmacUtils.verifyHmacSha256(payload, v1Signature, webhookSecret);

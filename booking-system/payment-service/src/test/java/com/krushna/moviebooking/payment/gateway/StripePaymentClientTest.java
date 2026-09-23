@@ -80,5 +80,17 @@ class StripePaymentClientTest {
         assertThat(result).isFalse();
     }
 
+    @Test
+    void verifyWebhookSignature_expiredTimestamp_returnsFalse() {
+        String rawBody = "{\"id\":\"evt_expired\"}";
+        String expiredTimestamp = String.valueOf((System.currentTimeMillis() / 1000) - 3600); // 1 hour ago
+        String secret = "whsec_stripe_test";
+        String signature = HmacUtils.calculateHmacSha256(expiredTimestamp + "." + rawBody, secret);
+        String header = "t=" + expiredTimestamp + ",v1=" + signature;
+
+        boolean result = stripePaymentClient.verifyWebhookSignature(rawBody, header);
+        assertThat(result).isFalse();
+    }
+
     private static final String CARD = "CREDIT_CARD";
 }

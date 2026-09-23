@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -157,8 +158,9 @@ public class OutboxRelayScheduler {
     private void processSingleEvent(OutboxEvent event) {
         String topic = EVENT_TOPIC_MAP.get(event.getEventType());
         if (topic == null) {
-            log.error("[OutboxRelay] Unknown eventType '{}' for outbox event id={}. Marking as failed.",
+            log.error("[OutboxRelay] Unknown eventType '{}' for outbox event id={}. Routing to DLT.",
                     event.getEventType(), event.getId());
+            routeToDeadLetterTopic(KafkaConfig.BOOKING_FAILED_TOPIC + ".DLT", event, "Unknown eventType: " + event.getEventType());
             outboxEventService.markAsFailed(event, "Unknown eventType: " + event.getEventType(), maxRetries);
             recordFailureMetric(event.getEventType());
             return;
@@ -193,8 +195,29 @@ public class OutboxRelayScheduler {
             log.warn("[OutboxRelay] Failed to publish outbox event id={} aggregateId={} to topic={}. RetryCount={}. Error: {}",
                     event.getId(), event.getAggregateId(), topic, event.getRetryCount(), e.getMessage());
 
+            if (event.getRetryCount() + 1 >= maxRetries) {
+                log.error("[OutboxRelay] Outbox event id={} exhausted max retries ({}/{}). Routing to Dead Letter Topic.",
+                        event.getId(), event.getRetryCount() + 1, maxRetries);
+                routeToDeadLetterTopic(topic + ".DLT", event, e.getMessage());
+            }
+
             outboxEventService.markAsFailed(event, e.getMessage(), maxRetries);
             recordFailureMetric(event.getEventType());
+        }
+    }
+
+    private void routeToDeadLetterTopic(String dltTopic, OutboxEvent event, String reason) {
+        try {
+            ProducerRecord<String, Object> dltRecord = new ProducerRecord<>(dltTopic, event.getAggregateId(), event.getPayload());
+            dltRecord.headers().add(new RecordHeader("eventId", event.getId().toString().getBytes(StandardCharsets.UTF_8)));
+            dltRecord.headers().add(new RecordHeader("eventType", (event.getEventType() != null ? event.getEventType() : "UNKNOWN").getBytes(StandardCharsets.UTF_8)));
+            dltRecord.headers().add(new RecordHeader("dltError", (reason != null ? reason : "Unknown error").getBytes(StandardCharsets.UTF_8)));
+            dltRecord.headers().add(new RecordHeader("dltTimestamp", Instant.now().toString().getBytes(StandardCharsets.UTF_8)));
+            kafkaTemplate.send(dltRecord);
+            log.info("[OutboxRelay] Dispatched dead-letter event id={} to DLT topic={}", event.getId(), dltTopic);
+        } catch (Exception dltEx) {
+            log.error("[OutboxRelay] Failed to dispatch record to DLT topic={} for event id={}: {}",
+                    dltTopic, event.getId(), dltEx.getMessage());
         }
     }
 
