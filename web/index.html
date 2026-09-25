@@ -1,266 +1,570 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VibeCheck - Distributed Movie Booking & Live Seat Locking Platform</title>
-  <meta name="description" content="Production-grade distributed movie booking platform with real-time Redis seat locking, Kafka Transactional Outbox, and Kubernetes autoscaling.">
-  <link rel="stylesheet" href="css/styles.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VibeCheck — Movie &amp; Event Tickets</title>
+  <meta name="description" content="Book movie tickets, events and shows online. The easiest way to book tickets." />
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
 </head>
 <body>
 
-  <!-- Navigation Bar -->
-  <header>
-    <nav class="navbar" id="main-nav">
-      <a href="#" class="nav-brand" id="brand-link" onclick="switchView('movies'); return false;">
-        <div class="brand-logo">V</div>
-        <span class="brand-title">VibeCheck Cinema</span>
+<!-- HEADER -->
+<header class="header" id="mainHeader">
+  <div class="header-inner">
+    <div class="header-left">
+      <a class="logo" onclick="showPage('home')">
+        <span class="logo-v">Vibe</span><span class="logo-c">Check</span>
       </a>
-
-      <ul class="nav-links">
-        <li><button class="nav-link active" id="nav-movies-btn" onclick="switchView('movies')">Now Showing</button></li>
-        <li><button class="nav-link" id="nav-seats-btn" onclick="switchView('seats')">Interactive Seat Map</button></li>
-        <li><button class="nav-link" id="nav-admin-btn" onclick="switchView('admin')">Admin & Observability</button></li>
-      </ul>
-
-      <div class="nav-actions">
-        <div class="badge-live">
-          <div class="pulse-dot"></div>
-          <span>K8S CLUSTER LIVE</span>
+      <div class="city-selector" id="citySel" onclick="toggleCityDropdown(event)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+        <span id="selCity">Mumbai</span>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+        <div class="city-drop" id="cityDrop">
+          <div class="city-search-row"><input type="text" placeholder="Search city..." id="cityQ" oninput="filterCities(this.value)" onclick="event.stopPropagation()" /></div>
+          <div class="city-items" id="cityItems">
+            <div class="ci active" onclick="selectCity('Mumbai')">Mumbai</div>
+            <div class="ci" onclick="selectCity('Delhi')">Delhi</div>
+            <div class="ci" onclick="selectCity('Bangalore')">Bangalore</div>
+            <div class="ci" onclick="selectCity('Hyderabad')">Hyderabad</div>
+            <div class="ci" onclick="selectCity('Chennai')">Chennai</div>
+            <div class="ci" onclick="selectCity('Kolkata')">Kolkata</div>
+            <div class="ci" onclick="selectCity('Pune')">Pune</div>
+            <div class="ci" onclick="selectCity('Ahmedabad')">Ahmedabad</div>
+          </div>
         </div>
       </div>
-    </nav>
-  </header>
+    </div>
+    <div class="header-center">
+      <div class="search-wrap">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="globalSearch" placeholder="Search for Movies, Events, Plays, Sports…" oninput="handleSearch(this.value)" />
+        <div class="search-results" id="searchResults"></div>
+      </div>
+    </div>
+    <div class="header-right">
+      <button class="btn-signin" id="loginBtn" onclick="openLoginModal()">Sign In</button>
+      <div class="user-menu" id="userMenu" style="display:none">
+        <div class="avatar" id="userAvatar" onclick="toggleUserDrop()">K</div>
+        <div class="user-drop" id="userDrop">
+          <div class="ud-info">
+            <strong id="ddName">Krushna</strong>
+            <small id="ddEmail">user@email.com</small>
+          </div>
+          <div class="ud-divider"></div>
+          <a class="ud-item" onclick="showPage('bookings')">📋 My Bookings</a>
+          <a class="ud-item" onclick="showPage('profile')">👤 My Profile</a>
+          <div class="ud-divider"></div>
+          <a class="ud-item" href="../partner-portal/index.html" target="_blank">🏢 Partner Portal</a>
+          <a class="ud-item" href="../admin-portal/index.html" target="_blank">🛡️ Admin Portal</a>
+          <div class="ud-divider"></div>
+          <a class="ud-item red" onclick="logout()">🚪 Logout</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <nav class="header-nav">
+    <a class="hnav active" id="hn-movies" onclick="setTab('movies');showPage('home')">Movies</a>
+    <a class="hnav" id="hn-events" onclick="setTab('events')">Events</a>
+    <a class="hnav" id="hn-plays" onclick="setTab('plays')">Plays</a>
+    <a class="hnav" id="hn-sports" onclick="setTab('sports')">Sports</a>
+    <a class="hnav" id="hn-activities" onclick="setTab('activities')">Activities</a>
+  </nav>
+</header>
 
-  <main class="container">
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
 
-    <!-- =========================================================================
-         VIEW 1: MOVIES DISCOVERY & HERO
-         ========================================================================= -->
-    <section class="view-section active" id="view-movies">
-      <div class="hero">
-        <div class="hero-content">
-          <div class="hero-tag">DISTRIBUTED EVENT-DRIVEN ARCHITECTURE</div>
-          <h1 class="hero-title">Experience Cinema in Ultra-Low Latency</h1>
-          <p class="hero-desc">Powered by Spring Boot microservices, Redis distributed locks, and Kafka Transactional Outbox for zero double-booking reliability.</p>
-          <div class="hero-stats">
-            <div class="stat-item">
-              <h4>8 Services</h4>
-              <p>Microservices</p>
+<!-- PAGES -->
+<main class="main">
+
+  <!-- HOME -->
+  <div class="page" id="page-home">
+    <!-- Hero Slider -->
+    <div class="hero">
+      <div class="hero-slides" id="hSlides">
+        <div class="hslide active" style="background:linear-gradient(to right,#1a0505 20%,transparent),url('https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1400&q=80') center/cover">
+          <div class="hcontent">
+            <div class="hbadge">Now Showing</div>
+            <h1 class="htitle">Interstellar Returns</h1>
+            <p class="hsub">Christopher Nolan &nbsp;·&nbsp; PG-13 &nbsp;·&nbsp; 2h 49m</p>
+            <div class="hbtns">
+              <button class="btn-hbook" onclick="openMovieDetail(0)">Book Tickets</button>
+              <button class="btn-htrailer" onclick="showToast('Trailer coming soon!')">▶ Trailer</button>
             </div>
-            <div class="stat-item">
-              <h4>&lt; 50ms</h4>
-              <p>Lock Latency</p>
+          </div>
+        </div>
+        <div class="hslide" style="background:linear-gradient(to right,#05051a 20%,transparent),url('https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=1400&q=80') center/cover">
+          <div class="hcontent">
+            <div class="hbadge">Opening This Week</div>
+            <h1 class="htitle">The Dark Horizon</h1>
+            <p class="hsub">Action &nbsp;·&nbsp; UA &nbsp;·&nbsp; 2h 15m</p>
+            <div class="hbtns">
+              <button class="btn-hbook" onclick="openMovieDetail(1)">Book Tickets</button>
+              <button class="btn-htrailer" onclick="showToast('Trailer coming soon!')">▶ Trailer</button>
             </div>
-            <div class="stat-item">
-              <h4>100%</h4>
-              <p>Zero Double-Booking</p>
+          </div>
+        </div>
+        <div class="hslide" style="background:linear-gradient(to right,#051a05 20%,transparent),url('https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=1400&q=80') center/cover">
+          <div class="hcontent">
+            <div class="hbadge">Top Rated</div>
+            <h1 class="htitle">Echoes of Eternity</h1>
+            <p class="hsub">Sci-Fi &nbsp;·&nbsp; A &nbsp;·&nbsp; 2h 32m</p>
+            <div class="hbtns">
+              <button class="btn-hbook" onclick="openMovieDetail(2)">Book Tickets</button>
+              <button class="btn-htrailer" onclick="showToast('Trailer coming soon!')">▶ Trailer</button>
             </div>
           </div>
         </div>
       </div>
-
-      <div class="section-header">
-        <h2 class="section-title">Trending in Theatres</h2>
+      <button class="harrow left" onclick="prevSlide()">&#8249;</button>
+      <button class="harrow right" onclick="nextSlide()">&#8250;</button>
+      <div class="hdots" id="hDots">
+        <button class="hdot active" onclick="goSlide(0)"></button>
+        <button class="hdot" onclick="goSlide(1)"></button>
+        <button class="hdot" onclick="goSlide(2)"></button>
       </div>
+    </div>
 
-      <div class="movie-grid" id="movies-catalog-grid">
-        <!-- Rendered by JS -->
+    <!-- Filters -->
+    <div class="filter-bar">
+      <div class="filter-inner">
+        <div class="ftabs">
+          <button class="ftab active" id="ft-now" onclick="setFilter('now')">Now Showing</button>
+          <button class="ftab" id="ft-upcoming" onclick="setFilter('upcoming')">Upcoming</button>
+          <button class="ftab" id="ft-top" onclick="setFilter('top')">Top Rated</button>
+        </div>
+        <div class="fselects">
+          <select class="fsel" id="genreSel" onchange="applyFilters()">
+            <option value="">All Genres</option>
+            <option>Action</option><option>Drama</option><option>Comedy</option>
+            <option>Thriller</option><option>Sci-Fi</option><option>Horror</option><option>Romance</option>
+          </select>
+          <select class="fsel" id="langSel" onchange="applyFilters()">
+            <option value="">All Languages</option>
+            <option>Hindi</option><option>English</option><option>Tamil</option>
+            <option>Telugu</option><option>Kannada</option>
+          </select>
+          <select class="fsel" id="fmtSel" onchange="applyFilters()">
+            <option value="">All Formats</option>
+            <option>2D</option><option>3D</option><option>IMAX</option><option>4DX</option>
+          </select>
+        </div>
       </div>
+    </div>
+
+    <!-- Movies Grid -->
+    <section class="section">
+      <div class="sec-head">
+        <h2 class="sec-title" id="moviesHeading">Now Showing in Mumbai</h2>
+      </div>
+      <div class="movies-grid" id="moviesGrid"></div>
     </section>
 
-    <!-- =========================================================================
-         VIEW 2: REAL-TIME SEAT SELECTION & HALL
-         ========================================================================= -->
-    <section class="view-section" id="view-seats">
-      <div class="section-header">
-        <div>
-          <button class="nav-link" onclick="switchView('movies')" style="display: inline-block; margin-bottom: 8px;">&larr; Back to Movies</button>
-          <h2 class="section-title" id="booking-movie-heading">Interstellar - IMAX 4K Laser</h2>
-          <p style="color: var(--text-muted); font-size: 0.95rem;" id="booking-meta-text">PVR ICON Audi 1 &bull; Today, 7:30 PM</p>
-        </div>
+    <!-- Events -->
+    <section class="section bg-light">
+      <div class="sec-head">
+        <h2 class="sec-title">Events &amp; Experiences</h2>
+        <a class="see-all" href="#">See all &rsaquo;</a>
       </div>
-
-      <div class="booking-view">
-        <!-- Cinema Hall Screen & Seats -->
-        <div class="cinema-hall">
-          <div class="screen-container">
-            <div class="screen-curve"></div>
-            <div class="screen-label">ALL EYES ON SCREEN</div>
-          </div>
-
-          <!-- Seat Grid Container -->
-          <div class="seat-grid" id="seat-grid-container">
-            <!-- Dynamic rows generated by JS -->
-          </div>
-
-          <!-- Legend -->
-          <div class="seat-legend">
-            <div class="legend-item">
-              <div class="legend-swatch swatch-available"></div>
-              <span>Available</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-swatch swatch-selected"></div>
-              <span>Selected</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-swatch swatch-locked"></div>
-              <span>Locked (Held)</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-swatch swatch-booked"></div>
-              <span>Booked</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Order Summary & Checkout Card -->
-        <aside class="order-summary-card">
-          <h3 class="summary-title">Booking Summary</h3>
-
-          <div class="movie-mini-info">
-            <h4 id="summary-movie-title">Interstellar</h4>
-            <p id="summary-theatre-details">PVR ICON &bull; Audi 1 &bull; 7:30 PM</p>
-          </div>
-
-          <div>
-            <label style="font-size: 0.85rem; color: var(--text-dim); text-transform: uppercase;">Selected Seats</label>
-            <div class="selected-seats-badge-list" id="selected-badges-list">
-              <span style="font-size: 0.85rem; color: var(--text-dim); line-height: 38px;">No seats selected yet</span>
-            </div>
-          </div>
-
-          <!-- Lock Expiration Countdown Timer -->
-          <div class="lock-timer-box" id="lock-timer-box" style="display: none;">
-            <div class="lock-timer-text">
-              ⏱️ Redis Lock Active
-              <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">Held exclusively for you</div>
-            </div>
-            <div class="lock-timer-clock" id="lock-countdown">05:00</div>
-          </div>
-
-          <!-- Price Calculation -->
-          <div class="price-breakdown">
-            <div class="price-row">
-              <span>Tickets Subtotal</span>
-              <span id="price-subtotal">&#8377;0.00</span>
-            </div>
-            <div class="price-row">
-              <span>Convenience Fee</span>
-              <span id="price-fee">&#8377;0.00</span>
-            </div>
-            <div class="price-row">
-              <span>GST (18%)</span>
-              <span id="price-tax">&#8377;0.00</span>
-            </div>
-            <div class="price-row total">
-              <span>Total Payable</span>
-              <span id="price-total">&#8377;0.00</span>
-            </div>
-          </div>
-
-          <button class="btn-checkout" id="checkout-btn" disabled onclick="executeCheckout()">
-            Lock Seats &amp; Pay Now
-          </button>
-        </aside>
-      </div>
+      <div class="events-row" id="eventsRow"></div>
     </section>
+  </div>
 
-    <!-- =========================================================================
-         VIEW 3: ADMIN & OBSERVABILITY CONSOLE
-         ========================================================================= -->
-    <section class="view-section" id="view-admin">
-      <div class="section-header">
-        <h2 class="section-title">Platform Observability &amp; Health</h2>
-      </div>
+  <!-- BOOKING FLOW -->
+  <div class="page hidden" id="page-booking">
+    <div class="steps-bar">
+      <div class="step active" id="st1"><span class="snum">1</span><span class="slbl">Seats</span></div>
+      <div class="step-line"></div>
+      <div class="step" id="st2"><span class="snum">2</span><span class="slbl">Food &amp; Drinks</span></div>
+      <div class="step-line"></div>
+      <div class="step" id="st3"><span class="snum">3</span><span class="slbl">Payment</span></div>
+    </div>
 
-      <div class="admin-grid">
-        <div class="metric-card cyan">
-          <h5>API Gateway Status</h5>
-          <div class="val">ACTIVE 200</div>
-          <p style="font-size: 0.8rem; color: var(--text-dim); margin-top: 6px;">Port 8079 &bull; Reverse Proxy</p>
+    <!-- STEP 1: SEATS -->
+    <div id="stepSeats" class="bstep">
+      <div class="blayout">
+        <div class="seat-main">
+          <div class="seat-topbar">
+            <div>
+              <h3 class="seat-mname" id="seatMovieName">Movie Name</h3>
+              <p class="seat-info" id="seatInfo">Theatre · Date · Time</p>
+            </div>
+            <div class="legend">
+              <span class="leg"><span class="legbox avail"></span>Available</span>
+              <span class="leg"><span class="legbox sel"></span>Selected</span>
+              <span class="leg"><span class="legbox booked"></span>Booked</span>
+            </div>
+          </div>
+          <div class="screen-wrap"><div class="screen-line"></div><p class="screen-lbl">All eyes this way please!</p></div>
+          <div id="seatMap" class="seat-map"></div>
         </div>
-        <div class="metric-card sunset">
-          <h5>Active Redis Seat Locks</h5>
-          <div class="val" id="metric-active-locks">12 Locks</div>
-          <p style="font-size: 0.8rem; color: var(--text-dim); margin-top: 6px;">Lua Verified &bull; TTL 300s</p>
-        </div>
-        <div class="metric-card emerald">
-          <h5>Kafka Outbox Relay</h5>
-          <div class="val">100% DELIVERED</div>
-          <p style="font-size: 0.8rem; color: var(--text-dim); margin-top: 6px;">Zero Ghost Events &bull; DLT Ready</p>
-        </div>
-      </div>
-
-      <div class="hero" style="margin-top: 24px;">
-        <div class="hero-content">
-          <div class="hero-tag">GRAFANA &amp; PROMETHEUS STACK</div>
-          <h3 style="font-size: 1.8rem; margin-bottom: 12px;">Live Metrics &amp; Monitoring</h3>
-          <p style="color: var(--text-muted); margin-bottom: 24px;">Access real-time JVM metrics, Kafka consumer lag, and HTTP request throughput dashboards.</p>
-          <div style="display: flex; gap: 14px;">
-            <a href="http://localhost:3000" target="_blank" class="btn-book" style="text-decoration: none; padding: 12px 24px; font-size: 0.95rem;">
-              Open Grafana Dashboard &rarr;
-            </a>
-            <a href="http://localhost:9090" target="_blank" class="btn-secondary" style="text-decoration: none; padding: 12px 24px; font-size: 0.95rem;">
-              Open Prometheus Targets
-            </a>
+        <div class="bsidebar">
+          <div class="scard">
+            <h4 class="scard-title">Booking Summary</h4>
+            <div class="scard-movie">
+              <img id="sc1Poster" src="" alt="" class="sc-poster" />
+              <div>
+                <div class="sc-mtitle" id="sc1Title"></div>
+                <div class="sc-msub" id="sc1Theatre"></div>
+                <div class="sc-msub" id="sc1DateTime"></div>
+              </div>
+            </div>
+            <div class="sdiv"></div>
+            <div class="srow"><span>Seats</span><span id="sc1Seats">—</span></div>
+            <div class="srow"><span>Tickets</span><span id="sc1Ticket">₹0</span></div>
+            <div class="srow"><span>Convenience Fee</span><span id="sc1Conv">₹0</span></div>
+            <div class="sdiv"></div>
+            <div class="srow bold"><span>Total</span><span id="sc1Total">₹0</span></div>
+            <button class="btn-proceed" id="btnProceed" onclick="goToFood()" disabled>Proceed &rsaquo;</button>
           </div>
         </div>
       </div>
-    </section>
+    </div>
 
-  </main>
-
-  <!-- =========================================================================
-       MODAL: DIGITAL BOARDING PASS / CINEMA TICKET
-       ========================================================================= -->
-  <div class="modal-overlay" id="ticket-modal">
-    <div class="ticket-pass">
-      <div class="ticket-header">
-        <div class="ticket-logo">VIBECHECK PASS</div>
-        <div class="ticket-confirmed-tag">&#x2714; BOOKING CONFIRMED</div>
+    <!-- STEP 2: FOOD -->
+    <div id="stepFood" class="bstep hidden">
+      <div class="blayout">
+        <div class="food-main">
+          <h3 class="sec-title" style="margin-bottom:6px">🍿 Food &amp; Beverages</h3>
+          <p class="text-muted mb20">Skip the queue! Pre-order and collect at the counter.</p>
+          <div class="food-grid" id="foodGrid"></div>
+        </div>
+        <div class="bsidebar">
+          <div class="scard">
+            <h4 class="scard-title">Order Summary</h4>
+            <div class="srow"><span>Tickets</span><span id="sc2Ticket">₹0</span></div>
+            <div class="srow"><span>Food &amp; Drinks</span><span id="sc2Food">₹0</span></div>
+            <div class="srow"><span>Convenience Fee</span><span id="sc2Conv">₹0</span></div>
+            <div class="sdiv"></div>
+            <div class="srow bold"><span>Total</span><span id="sc2Total">₹0</span></div>
+            <button class="btn-proceed" onclick="goToPayment()">Proceed to Pay &rsaquo;</button>
+            <button class="btn-skip" onclick="skipFood()">Skip Food &amp; Drinks</button>
+          </div>
+        </div>
       </div>
+    </div>
 
-      <div class="ticket-body">
-        <div class="ticket-grid">
-          <div class="ticket-field">
-            <span>Movie</span>
-            <strong id="ticket-movie-name">Interstellar</strong>
+    <!-- STEP 3: PAYMENT -->
+    <div id="stepPayment" class="bstep hidden">
+      <div class="blayout">
+        <div class="pay-main">
+          <h3 class="sec-title mb20">💳 Payment</h3>
+
+          <div class="pay-sec">
+            <div class="pay-sec-hdr" onclick="togglePay('upi')">
+              <span><span class="pay-ico">📱</span> UPI</span>
+              <svg class="chev" id="chev-upi" width="18" height="18" viewBox="0 0 24 24" fill="#555"><path d="M7 10l5 5 5-5z"/></svg>
+            </div>
+            <div class="pay-sec-body" id="pb-upi">
+              <div class="upi-apps">
+                <button class="upi-btn" onclick="selectUPIApp('gpay')">
+                  <div class="upi-icon gpay">G</div><span>Google Pay</span>
+                </button>
+                <button class="upi-btn" onclick="selectUPIApp('phonepe')">
+                  <div class="upi-icon phonepe">P</div><span>PhonePe</span>
+                </button>
+                <button class="upi-btn" onclick="selectUPIApp('paytm')">
+                  <div class="upi-icon paytm">₿</div><span>Paytm</span>
+                </button>
+                <button class="upi-btn" onclick="selectUPIApp('other')">
+                  <div class="upi-icon other">₹</div><span>Other UPI</span>
+                </button>
+              </div>
+              <div id="upiIdRow" style="display:none;margin-top:12px">
+                <input type="text" class="pay-input" placeholder="Enter UPI ID (e.g. name@paytm)" id="upiIdVal" />
+                <button class="btn-verify" onclick="verifyUPI()">Verify &amp; Pay</button>
+              </div>
+            </div>
           </div>
-          <div class="ticket-field">
-            <span>Cinema</span>
-            <strong id="ticket-theatre-name">PVR ICON, Audi 1</strong>
+
+          <div class="pay-sec">
+            <div class="pay-sec-hdr" onclick="togglePay('card')">
+              <span><span class="pay-ico">💳</span> Credit / Debit Card</span>
+              <svg class="chev" id="chev-card" width="18" height="18" viewBox="0 0 24 24" fill="#555"><path d="M7 10l5 5 5-5z"/></svg>
+            </div>
+            <div class="pay-sec-body hidden" id="pb-card">
+              <div class="card-form">
+                <div class="fg"><label>Card Number</label><input class="pay-input" type="text" id="cardNum" placeholder="0000 0000 0000 0000" maxlength="19" oninput="fmtCard(this)" /></div>
+                <div class="fgrow">
+                  <div class="fg"><label>Expiry</label><input class="pay-input" type="text" placeholder="MM / YY" maxlength="7" oninput="fmtExpiry(this)" /></div>
+                  <div class="fg"><label>CVV</label><input class="pay-input" type="password" placeholder="•••" maxlength="3" /></div>
+                </div>
+                <div class="fg"><label>Name on Card</label><input class="pay-input" type="text" placeholder="Full Name" /></div>
+              </div>
+            </div>
           </div>
-          <div class="ticket-field">
-            <span>Date &amp; Time</span>
-            <strong id="ticket-time-text">Today, 7:30 PM</strong>
+
+          <div class="pay-sec">
+            <div class="pay-sec-hdr" onclick="togglePay('netbank')">
+              <span><span class="pay-ico">🏦</span> Net Banking</span>
+              <svg class="chev" id="chev-netbank" width="18" height="18" viewBox="0 0 24 24" fill="#555"><path d="M7 10l5 5 5-5z"/></svg>
+            </div>
+            <div class="pay-sec-body hidden" id="pb-netbank">
+              <div class="bank-grid">
+                <button class="bank-btn" onclick="selectBank(this, 'SBI')">SBI</button>
+                <button class="bank-btn" onclick="selectBank(this, 'HDFC')">HDFC</button>
+                <button class="bank-btn" onclick="selectBank(this, 'ICICI')">ICICI</button>
+                <button class="bank-btn" onclick="selectBank(this, 'Axis')">Axis</button>
+                <button class="bank-btn" onclick="selectBank(this, 'Kotak')">Kotak</button>
+                <button class="bank-btn" onclick="selectBank(this, 'PNB')">PNB</button>
+              </div>
+            </div>
           </div>
-          <div class="ticket-field">
-            <span>Seats</span>
-            <strong id="ticket-seats-text" style="color: #00F2FE;">B4, B5</strong>
+
+          <div class="pay-sec">
+            <div class="pay-sec-hdr" onclick="togglePay('wallet')">
+              <span><span class="pay-ico">👛</span> Wallets</span>
+              <svg class="chev" id="chev-wallet" width="18" height="18" viewBox="0 0 24 24" fill="#555"><path d="M7 10l5 5 5-5z"/></svg>
+            </div>
+            <div class="pay-sec-body hidden" id="pb-wallet">
+              <div class="bank-grid">
+                <button class="bank-btn" onclick="selectBank(this, 'Paytm Wallet')">Paytm</button>
+                <button class="bank-btn" onclick="selectBank(this, 'Mobikwik')">Mobikwik</button>
+                <button class="bank-btn" onclick="selectBank(this, 'Amazon Pay')">Amazon Pay</button>
+                <button class="bank-btn" onclick="selectBank(this, 'Freecharge')">Freecharge</button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="ticket-divider"></div>
-
-        <div class="ticket-qr-section">
-          <div class="qr-canvas-box">
-            <canvas id="qr-canvas" width="160" height="160"></canvas>
+        <div class="bsidebar">
+          <div class="scard">
+            <h4 class="scard-title">Payment Summary</h4>
+            <div class="scard-movie">
+              <img id="sc3Poster" src="" alt="" class="sc-poster" />
+              <div>
+                <div class="sc-mtitle" id="sc3Title"></div>
+                <div class="sc-msub" id="sc3Theatre"></div>
+                <div class="sc-msub" id="sc3DateTime"></div>
+              </div>
+            </div>
+            <div class="sdiv"></div>
+            <div class="srow"><span>Seats</span><span id="sc3Seats">—</span></div>
+            <div class="srow"><span>Tickets</span><span id="sc3Ticket">₹0</span></div>
+            <div class="srow" id="sc3FoodRow" style="display:none"><span>Food &amp; Drinks</span><span id="sc3Food">₹0</span></div>
+            <div class="srow"><span>Convenience Fee</span><span id="sc3Conv">₹0</span></div>
+            <div class="sdiv"></div>
+            <div class="srow bold"><span>Total</span><span id="sc3Total">₹0</span></div>
+            <button class="btn-pay" id="btnPay" onclick="processPayment()">Pay <span id="payAmt">₹0</span></button>
           </div>
-          <div class="ticket-ref-text" id="ticket-booking-ref">BK-9A74E32B10</div>
-          <p style="font-size: 0.75rem; color: var(--text-dim);">Show this QR code at cinema ticket scanner</p>
+          <div class="secure-note">🔒 100% Secure Payments</div>
         </div>
-      </div>
-
-      <div class="ticket-actions">
-        <button class="btn-secondary" onclick="window.print()">Print Ticket</button>
-        <button class="btn-book" style="flex: 1;" onclick="closeTicketModal()">Done</button>
       </div>
     </div>
   </div>
 
-  <script src="js/app.js"></script>
+  <!-- MY BOOKINGS -->
+  <div class="page hidden" id="page-bookings">
+    <div class="section">
+      <h2 class="page-title">My Bookings</h2>
+      <div class="btabs">
+        <button class="btab active" id="bta-upcoming" onclick="setBTab('upcoming')">Upcoming</button>
+        <button class="btab" id="bta-past" onclick="setBTab('past')">Past</button>
+        <button class="btab" id="bta-cancelled" onclick="setBTab('cancelled')">Cancelled</button>
+      </div>
+      <div id="bList" class="blist"></div>
+    </div>
+  </div>
+
+  <!-- PROFILE -->
+  <div class="page hidden" id="page-profile">
+    <div class="section">
+      <h2 class="page-title">My Profile</h2>
+      <div class="profile-card">
+        <div class="profile-av" id="profileAv">K</div>
+        <div class="profile-form">
+          <div class="fg"><label>Full Name</label><input type="text" id="pName" placeholder="Your Name" /></div>
+          <div class="fg"><label>Email</label><input type="email" id="pEmail" placeholder="you@email.com" /></div>
+          <div class="fg"><label>Mobile</label><input type="tel" id="pMobile" placeholder="+91 XXXXXXXXXX" /></div>
+          <div class="fg"><label>Date of Birth</label><input type="date" id="pDob" /></div>
+          <button class="btn-save" onclick="saveProfile()">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ===== MODALS ===== -->
+
+<!-- Login -->
+<div class="overlay hidden" id="loginOverlay" onclick="closeLoginModal()">
+  <div class="modal login-modal" onclick="event.stopPropagation()">
+    <button class="mclose" onclick="closeLoginModal()">✕</button>
+    <div class="login-brand"><span class="logo-v">Vibe</span><span class="logo-c">Check</span></div>
+    <h2 class="login-h">Sign in to continue</h2>
+    <div class="ltabs">
+      <button class="ltab active" id="lt-mobile" onclick="setLTab('mobile')">Mobile</button>
+      <button class="ltab" id="lt-email" onclick="setLTab('email')">Email</button>
+    </div>
+    <!-- Mobile -->
+    <div id="lp-mobile">
+      <div id="ls1">
+        <div class="fg">
+          <label>Mobile Number</label>
+          <div class="mobile-row">
+            <span class="cc">🇮🇳 +91</span>
+            <input type="tel" id="mobileIn" placeholder="10-digit mobile number" maxlength="10" />
+          </div>
+        </div>
+        <button class="btn-otp" onclick="sendOTP()">Get OTP</button>
+        <p class="terms">By continuing, you agree to our <a href="#">Terms &amp; Conditions</a></p>
+      </div>
+      <div id="ls2" style="display:none">
+        <p class="otp-note">OTP sent to +91 <strong id="otpTo"></strong></p>
+        <div class="otp-row" id="otpRow">
+          <input class="ob" type="text" maxlength="1" oninput="obInput(this,0)" />
+          <input class="ob" type="text" maxlength="1" oninput="obInput(this,1)" />
+          <input class="ob" type="text" maxlength="1" oninput="obInput(this,2)" />
+          <input class="ob" type="text" maxlength="1" oninput="obInput(this,3)" />
+          <input class="ob" type="text" maxlength="1" oninput="obInput(this,4)" />
+          <input class="ob" type="text" maxlength="1" oninput="obInput(this,5)" />
+        </div>
+        <button class="btn-otp" onclick="verifyOTP()">Verify OTP</button>
+        <p class="resend">Didn't get it? <a onclick="sendOTP()">Resend OTP</a></p>
+      </div>
+    </div>
+    <!-- Email -->
+    <div id="lp-email" style="display:none">
+      <div id="lf-login">
+        <div class="fg"><label>Email</label><input type="email" id="emIn" placeholder="you@example.com" /></div>
+        <div class="fg"><label>Password</label><div class="pwrow"><input type="password" id="pwIn" placeholder="Password" /><button class="peye" onclick="togglePw('pwIn')">👁</button></div></div>
+        <button class="btn-otp" onclick="emailLogin()">Sign In</button>
+        <p class="terms">New user? <a onclick="showSignup()">Create account</a></p>
+      </div>
+      <div id="lf-signup" style="display:none">
+        <div class="fg"><label>Full Name</label><input type="text" id="suName" placeholder="Your Name" /></div>
+        <div class="fg"><label>Email</label><input type="email" id="suEmail" placeholder="you@example.com" /></div>
+        <div class="fg"><label>Password</label><div class="pwrow"><input type="password" id="suPw" placeholder="Create password" /><button class="peye" onclick="togglePw('suPw')">👁</button></div></div>
+        <button class="btn-otp" onclick="emailSignup()">Create Account</button>
+        <p class="terms">Already have an account? <a onclick="showEmailLogin()">Sign In</a></p>
+      </div>
+    </div>
+    <div class="or-line"><span>OR</span></div>
+    <button class="google-btn" onclick="socialLogin('Google')">
+      <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Continue with Google
+    </button>
+  </div>
+</div>
+
+<!-- Movie Detail -->
+<div class="overlay hidden" id="movieOverlay" onclick="closeMovieModal()">
+  <div class="modal movie-modal" onclick="event.stopPropagation()">
+    <button class="mclose" onclick="closeMovieModal()">✕</button>
+    <div class="mm-hero" id="mmHero"></div>
+    <div class="mm-body">
+      <div class="mm-left">
+        <img id="mmPoster" src="" alt="" class="mm-poster" />
+        <button class="btn-book-now" onclick="startBooking()">Book Tickets</button>
+        <button class="btn-trailer-sm" onclick="showToast('Trailer coming soon!')">▶ Watch Trailer</button>
+      </div>
+      <div class="mm-right">
+        <h2 id="mmTitle" class="mm-title"></h2>
+        <div id="mmMeta" class="mm-meta"></div>
+        <div id="mmRating" class="mm-rating"></div>
+        <p id="mmDesc" class="mm-desc"></p>
+        <div id="mmCast" class="mm-cast"></div>
+        <!-- Show timings -->
+        <div class="timings-sec">
+          <h4>Select Date</h4>
+          <div class="date-tabs" id="dateTabs"></div>
+          <h4 style="margin-top:18px">Available Shows</h4>
+          <div id="theatreShows" class="theatre-shows"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- E-Ticket -->
+<div class="overlay hidden" id="ticketOverlay" onclick="closeTicketModal()">
+  <div class="modal ticket-modal" onclick="event.stopPropagation()">
+    <button class="mclose" onclick="closeTicketModal()">✕</button>
+    <div class="tick-success">
+      <div class="tick-check">✅</div>
+      <h2>Booking Confirmed!</h2>
+      <p>Booking ID: <strong id="bkId"></strong></p>
+    </div>
+    <div class="e-ticket" id="eTicket">
+      <div class="et-top">
+        <div class="et-logo"><span class="logo-v">Vibe</span><span class="logo-c">Check</span></div>
+        <div class="et-badge">E-TICKET</div>
+      </div>
+      <div class="et-body">
+        <div class="et-grid">
+          <div class="etinfo"><label>MOVIE</label><strong id="et-movie"></strong></div>
+          <div class="etinfo"><label>FORMAT</label><strong id="et-format"></strong></div>
+          <div class="etinfo"><label>DATE &amp; TIME</label><strong id="et-dt"></strong></div>
+          <div class="etinfo"><label>THEATRE</label><strong id="et-theatre"></strong></div>
+          <div class="etinfo"><label>SEATS</label><strong id="et-seats"></strong></div>
+          <div class="etinfo"><label>AMOUNT PAID</label><strong id="et-amount"></strong></div>
+        </div>
+        <div class="et-qr">
+          <canvas id="qrCanvas" width="110" height="110"></canvas>
+          <p>Scan at venue</p>
+        </div>
+      </div>
+      <div class="et-foot">🎬 Enjoy your movie! Arrive 15 mins before the show.</div>
+    </div>
+    <div class="tick-actions">
+      <button class="btn-dl" onclick="downloadTicket()">⬇ Download</button>
+      <button class="btn-mybk" onclick="closeTicketModal();showPage('bookings')">📋 My Bookings</button>
+    </div>
+  </div>
+</div>
+
+<!-- Pay Processing -->
+<div class="pay-overlay hidden" id="payOverlay">
+  <div class="pay-spin"></div>
+  <p class="pay-msg">Processing your payment…</p>
+  <p class="pay-secure">🔒 Secured by VibeCheck Pay</p>
+</div>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-top">
+    <div class="fc">
+      <div class="logo mb10"><span class="logo-v">Vibe</span><span class="logo-c">Check</span></div>
+      <p class="footer-tag">India's best movie &amp; event booking platform.</p>
+      <div class="social-links">
+        <a class="soc">f</a><a class="soc">𝕏</a><a class="soc">in</a>
+      </div>
+    </div>
+    <div class="fc">
+      <h5>Movies</h5>
+      <ul><li>Now Showing</li><li>Upcoming</li><li>Top Rated</li></ul>
+    </div>
+    <div class="fc">
+      <h5>Events</h5>
+      <ul><li>Concerts</li><li>Comedy Shows</li><li>Workshops</li></ul>
+    </div>
+    <div class="fc">
+      <h5>Help</h5>
+      <ul><li>FAQs</li><li>Contact Us</li><li>Cancellation Policy</li></ul>
+    </div>
+    <div class="fc">
+      <h5>Partner &amp; Admin</h5>
+      <ul>
+        <li><a href="../partner-portal/index.html" target="_blank" style="color:inherit;text-decoration:none">🏢 Theatre Partner Portal</a></li>
+        <li><a href="../admin-portal/index.html" target="_blank" style="color:inherit;text-decoration:none">🛡️ Super Admin Portal</a></li>
+        <li><a href="../partner-portal/index.html" target="_blank" style="color:inherit;text-decoration:none">List Your Cinema</a></li>
+      </ul>
+    </div>
+    <div class="fc">
+      <h5>Company</h5>
+      <ul><li>About Us</li><li>Careers</li><li>Press</li></ul>
+    </div>
+  </div>
+  <div class="footer-bot">
+    <p>© 2026 VibeCheck Entertainment Pvt. Ltd. All rights reserved.</p>
+    <div class="flinks"><a>Privacy Policy</a><span>·</span><a>Terms of Use</a><span>·</span><a>Cookie Policy</a></div>
+  </div>
+</footer>
+
+<script src="js/app.js"></script>
 </body>
 </html>

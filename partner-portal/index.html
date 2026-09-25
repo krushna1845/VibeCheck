@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VibeCheck Partner Portal — Theatre Management</title>
+  <meta name="description" content="VibeCheck Partner Portal — Manage your cinema, screens, shows, seat layouts, and revenue analytics.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <link rel="stylesheet" href="css/partner.css">
+</head>
+<body>
+
+<!-- ===== LOGIN ===== -->
+<div id="loginScreen" class="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <span class="material-icons-round logo-icon">storefront</span>
+      <h1>VibeCheck <span>Partner</span></h1>
+      <p class="login-subtitle">Theatre Management Portal</p>
+    </div>
+    <form id="loginForm" autocomplete="off">
+      <div class="form-group">
+        <label for="loginEmail">Email</label>
+        <div class="input-icon">
+          <span class="material-icons-round">email</span>
+          <input type="email" id="loginEmail" placeholder="manager@pvr.com" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="loginPassword">Password</label>
+        <div class="input-icon">
+          <span class="material-icons-round">lock</span>
+          <input type="password" id="loginPassword" placeholder="Enter password" required>
+        </div>
+      </div>
+      <button type="submit" class="btn-primary btn-full" id="loginBtn">
+        <span class="material-icons-round">login</span> Sign In
+      </button>
+      <p class="login-hint">Access for ROLE_THEATRE_OWNER accounts</p>
+    </form>
+  </div>
+</div>
+
+<!-- ===== APP ===== -->
+<div id="appShell" class="app-shell hidden">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <span class="material-icons-round">storefront</span>
+      <span class="logo-text">VibeCheck <b>Partner</b></span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-section="dashboard">
+        <span class="material-icons-round">dashboard</span><span class="nav-label">Dashboard</span>
+      </a>
+      <a href="#" class="nav-item" data-section="my-theatres">
+        <span class="material-icons-round">theaters</span><span class="nav-label">My Theatres</span>
+      </a>
+      <a href="#" class="nav-item" data-section="screens">
+        <span class="material-icons-round">tv</span><span class="nav-label">Screens & Seats</span>
+      </a>
+      <a href="#" class="nav-item" data-section="showtimes">
+        <span class="material-icons-round">schedule</span><span class="nav-label">Showtimes</span>
+      </a>
+      <a href="#" class="nav-item" data-section="seat-pricing">
+        <span class="material-icons-round">sell</span><span class="nav-label">Pricing</span>
+      </a>
+      <a href="#" class="nav-item" data-section="box-office">
+        <span class="material-icons-round">point_of_sale</span><span class="nav-label">Box Office</span>
+      </a>
+      <a href="#" class="nav-item" data-section="revenue">
+        <span class="material-icons-round">analytics</span><span class="nav-label">Revenue</span>
+      </a>
+      <a href="#" class="nav-item" data-section="profile">
+        <span class="material-icons-round">account_circle</span><span class="nav-label">Profile</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="partner-badge">
+        <span class="material-icons-round">verified</span>
+        <span>Theatre Partner</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main-content">
+    <header class="topbar">
+      <button class="topbar-toggle" id="sidebarToggle">
+        <span class="material-icons-round">menu</span>
+      </button>
+      <div class="topbar-search">
+        <span class="material-icons-round">search</span>
+        <input type="text" placeholder="Search..." id="globalSearch">
+      </div>
+      <div class="topbar-actions">
+        <button class="topbar-btn" title="Notifications" id="notifBtn">
+          <span class="material-icons-round">notifications</span>
+          <span class="notif-dot"></span>
+        </button>
+        <div class="topbar-user" id="topbarUser">
+          <div class="avatar">P</div>
+          <span class="user-name" id="partnerName">Partner</span>
+          <span class="material-icons-round">expand_more</span>
+        </div>
+        <div class="user-dropdown hidden" id="userDropdown" style="width: 200px;">
+          <a href="../web/index.html" target="_blank"><span class="material-icons-round">local_activity</span> Customer Web</a>
+          <a href="../admin-portal/index.html" target="_blank"><span class="material-icons-round">shield</span> Admin Portal</a>
+          <hr style="border: none; border-top: 1px solid var(--border); margin: 4px 0;">
+          <a href="#" id="logoutBtn"><span class="material-icons-round">logout</span> Logout</a>
+        </div>
+      </div>
+    </header>
+
+    <div class="content-area" id="contentArea">
+
+      <!-- ===== DASHBOARD ===== -->
+      <section class="section active" id="sec-dashboard">
+        <div class="section-header">
+          <h2><span class="material-icons-round">dashboard</span> Partner Dashboard</h2>
+          <span class="date-label" id="dashDate"></span>
+        </div>
+        <div class="kpi-grid">
+          <div class="kpi-card kpi-blue">
+            <div class="kpi-icon"><span class="material-icons-round">theaters</span></div>
+            <div class="kpi-data"><span class="kpi-val" id="kpiTheatres">0</span><span class="kpi-label">My Theatres</span></div>
+          </div>
+          <div class="kpi-card kpi-cyan">
+            <div class="kpi-icon"><span class="material-icons-round">tv</span></div>
+            <div class="kpi-data"><span class="kpi-val" id="kpiScreens">0</span><span class="kpi-label">Total Screens</span></div>
+          </div>
+          <div class="kpi-card kpi-green">
+            <div class="kpi-icon"><span class="material-icons-round">event_available</span></div>
+            <div class="kpi-data"><span class="kpi-val" id="kpiShows">0</span><span class="kpi-label">Today's Shows</span></div>
+          </div>
+          <div class="kpi-card kpi-orange">
+            <div class="kpi-icon"><span class="material-icons-round">event_seat</span></div>
+            <div class="kpi-data"><span class="kpi-val" id="kpiOccupancy">0%</span><span class="kpi-label">Avg Occupancy</span></div>
+          </div>
+          <div class="kpi-card kpi-red">
+            <div class="kpi-icon"><span class="material-icons-round">confirmation_number</span></div>
+            <div class="kpi-data"><span class="kpi-val" id="kpiTickets">0</span><span class="kpi-label">Tickets Sold Today</span></div>
+          </div>
+          <div class="kpi-card kpi-purple">
+            <div class="kpi-icon"><span class="material-icons-round">account_balance_wallet</span></div>
+            <div class="kpi-data"><span class="kpi-val" id="kpiDailyRev">₹0</span><span class="kpi-label">Today's Revenue</span></div>
+          </div>
+        </div>
+
+        <div class="dash-row">
+          <div class="chart-card flex-2">
+            <h3><span class="material-icons-round">trending_up</span> Weekly Revenue</h3>
+            <div class="bar-chart" id="revenueChart"></div>
+          </div>
+          <div class="chart-card flex-1">
+            <h3><span class="material-icons-round">pie_chart</span> Occupancy by Screen</h3>
+            <div class="occupancy-list" id="occupancyList"></div>
+          </div>
+        </div>
+
+        <div class="card-full">
+          <h3><span class="material-icons-round">schedule</span> Today's Schedule</h3>
+          <div class="timeline" id="todayTimeline"></div>
+        </div>
+      </section>
+
+      <!-- ===== MY THEATRES ===== -->
+      <section class="section" id="sec-my-theatres">
+        <div class="section-header">
+          <h2><span class="material-icons-round">theaters</span> My Theatres</h2>
+          <button class="btn-primary" id="addTheatreBtn">
+            <span class="material-icons-round">add</span> Register Theatre
+          </button>
+        </div>
+        <div class="theatres-grid" id="theatresGrid"></div>
+      </section>
+
+      <!-- ===== SCREENS ===== -->
+      <section class="section" id="sec-screens">
+        <div class="section-header">
+          <h2><span class="material-icons-round">tv</span> Screens & Seat Layout</h2>
+          <div class="header-actions">
+            <select id="screenTheatreFilter"><option value="">Select Theatre</option></select>
+            <button class="btn-primary" id="addScreenBtn">
+              <span class="material-icons-round">add</span> Add Screen
+            </button>
+          </div>
+        </div>
+        <div class="screens-grid" id="screensGrid">
+          <div class="empty-state">Select a theatre to view screens.</div>
+        </div>
+        <div id="seatLayoutArea" class="hidden">
+          <h3 style="margin:24px 0 16px;color:var(--white);display:flex;align-items:center;gap:8px">
+            <span class="material-icons-round" style="color:var(--cyan)">view_comfy</span>
+            Seat Layout — <span id="layoutScreenName">Screen</span>
+          </h3>
+          <div class="seat-layout-container" id="seatLayout"></div>
+          <div class="seat-legend">
+            <span><span class="legend-seat silver"></span> Silver</span>
+            <span><span class="legend-seat gold"></span> Gold</span>
+            <span><span class="legend-seat platinum"></span> Platinum</span>
+            <span><span class="legend-seat recliner"></span> Recliner</span>
+            <span><span class="legend-seat inactive"></span> Inactive</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== SHOWTIMES ===== -->
+      <section class="section" id="sec-showtimes">
+        <div class="section-header">
+          <h2><span class="material-icons-round">schedule</span> Showtime Management</h2>
+          <div class="header-actions">
+            <input type="date" id="showtimeDateFilter" class="search-input">
+            <select id="showtimeTheatreFilter"><option value="">All Theatres</option></select>
+            <button class="btn-primary" id="addShowtimeBtn">
+              <span class="material-icons-round">add</span> Add Showtime
+            </button>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead><tr><th>Movie</th><th>Theatre</th><th>Screen</th><th>Date</th><th>Time</th><th>Language</th><th>Status</th><th>Booked</th><th>Actions</th></tr></thead>
+            <tbody id="showtimesBody">
+              <tr><td colspan="9" class="empty-state">No showtimes scheduled.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===== PRICING ===== -->
+      <section class="section" id="sec-seat-pricing">
+        <div class="section-header">
+          <h2><span class="material-icons-round">sell</span> Seat Pricing</h2>
+        </div>
+        <div class="pricing-grid">
+          <div class="pricing-card">
+            <div class="pricing-header silver-bg">
+              <span class="material-icons-round">event_seat</span>
+              <h4>Silver</h4>
+            </div>
+            <div class="pricing-body">
+              <div class="price-row"><label>Weekday</label><input type="number" value="150" id="priceSilverWd"></div>
+              <div class="price-row"><label>Weekend</label><input type="number" value="200" id="priceSilverWe"></div>
+              <div class="price-row"><label>Holiday</label><input type="number" value="250" id="priceSilverHol"></div>
+            </div>
+          </div>
+          <div class="pricing-card">
+            <div class="pricing-header gold-bg">
+              <span class="material-icons-round">event_seat</span>
+              <h4>Gold</h4>
+            </div>
+            <div class="pricing-body">
+              <div class="price-row"><label>Weekday</label><input type="number" value="250" id="priceGoldWd"></div>
+              <div class="price-row"><label>Weekend</label><input type="number" value="320" id="priceGoldWe"></div>
+              <div class="price-row"><label>Holiday</label><input type="number" value="400" id="priceGoldHol"></div>
+            </div>
+          </div>
+          <div class="pricing-card">
+            <div class="pricing-header platinum-bg">
+              <span class="material-icons-round">event_seat</span>
+              <h4>Platinum</h4>
+            </div>
+            <div class="pricing-body">
+              <div class="price-row"><label>Weekday</label><input type="number" value="350" id="pricePlatWd"></div>
+              <div class="price-row"><label>Weekend</label><input type="number" value="450" id="pricePlatWe"></div>
+              <div class="price-row"><label>Holiday</label><input type="number" value="550" id="pricePlatHol"></div>
+            </div>
+          </div>
+          <div class="pricing-card">
+            <div class="pricing-header recliner-bg">
+              <span class="material-icons-round">airline_seat_recline_extra</span>
+              <h4>Recliner</h4>
+            </div>
+            <div class="pricing-body">
+              <div class="price-row"><label>Weekday</label><input type="number" value="500" id="priceRecWd"></div>
+              <div class="price-row"><label>Weekend</label><input type="number" value="650" id="priceRecWe"></div>
+              <div class="price-row"><label>Holiday</label><input type="number" value="750" id="priceRecHol"></div>
+            </div>
+          </div>
+        </div>
+        <button class="btn-primary" id="savePricingBtn" style="margin-top:20px">
+          <span class="material-icons-round">save</span> Save Pricing
+        </button>
+      </section>
+
+      <!-- ===== BOX OFFICE ===== -->
+      <section class="section" id="sec-box-office">
+        <div class="section-header">
+          <h2><span class="material-icons-round">point_of_sale</span> Box Office (Walk-in)</h2>
+        </div>
+        <div class="box-office-container">
+          <div class="bo-step">
+            <h4><span class="step-num">1</span> Select Show</h4>
+            <select id="boShowSelect" class="bo-select">
+              <option value="">Choose a show...</option>
+            </select>
+          </div>
+          <div class="bo-step">
+            <h4><span class="step-num">2</span> Select Seats</h4>
+            <div class="bo-seats" id="boSeats">
+              <p class="text-muted">Select a show first</p>
+            </div>
+          </div>
+          <div class="bo-step">
+            <h4><span class="step-num">3</span> Confirm Booking</h4>
+            <div class="bo-summary" id="boSummary">
+              <p class="text-muted">No seats selected</p>
+            </div>
+            <button class="btn-primary btn-full" id="boConfirmBtn" disabled>
+              <span class="material-icons-round">check_circle</span> Confirm Walk-in Booking
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== REVENUE ===== -->
+      <section class="section" id="sec-revenue">
+        <div class="section-header">
+          <h2><span class="material-icons-round">analytics</span> Revenue Analytics</h2>
+          <div class="header-actions">
+            <select id="revPeriod">
+              <option value="7">Last 7 Days</option>
+              <option value="30" selected>Last 30 Days</option>
+              <option value="90">Last 90 Days</option>
+            </select>
+          </div>
+        </div>
+        <div class="rev-kpis">
+          <div class="rev-kpi">
+            <span class="rev-kpi-val" id="revTotal">₹4,85,000</span>
+            <span class="rev-kpi-label">Total Revenue</span>
+          </div>
+          <div class="rev-kpi">
+            <span class="rev-kpi-val" id="revTickets">3,240</span>
+            <span class="rev-kpi-label">Tickets Sold</span>
+          </div>
+          <div class="rev-kpi">
+            <span class="rev-kpi-val" id="revAvgPrice">₹295</span>
+            <span class="rev-kpi-label">Avg Ticket Price</span>
+          </div>
+          <div class="rev-kpi">
+            <span class="rev-kpi-val" id="revOccupancy">72%</span>
+            <span class="rev-kpi-label">Avg Occupancy</span>
+          </div>
+        </div>
+        <div class="dash-row">
+          <div class="chart-card flex-2">
+            <h3>Revenue Trend</h3>
+            <div class="bar-chart" id="revTrendChart"></div>
+          </div>
+          <div class="chart-card flex-1">
+            <h3>Top Performing Movies</h3>
+            <div class="top-movies" id="revTopMovies"></div>
+          </div>
+        </div>
+        <div class="card-full">
+          <h3><span class="material-icons-round">receipt_long</span> Recent Transactions</h3>
+          <table class="data-table">
+            <thead><tr><th>Booking Ref</th><th>Movie</th><th>Seats</th><th>Amount</th><th>Payment</th><th>Time</th></tr></thead>
+            <tbody id="revTransactions"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===== PROFILE ===== -->
+      <section class="section" id="sec-profile">
+        <div class="section-header">
+          <h2><span class="material-icons-round">account_circle</span> Partner Profile</h2>
+        </div>
+        <div class="profile-container">
+          <div class="profile-card">
+            <div class="profile-avatar">
+              <div class="avatar-lg">P</div>
+              <h3 id="profileName">Theatre Partner</h3>
+              <p id="profileEmail">owner@pvr.com</p>
+              <span class="badge badge-purple">THEATRE OWNER</span>
+            </div>
+            <div class="profile-form">
+              <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" id="profName" value="Theatre Partner">
+              </div>
+              <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="profEmail" value="owner@pvr.com">
+              </div>
+              <div class="form-group">
+                <label>Mobile</label>
+                <input type="tel" id="profMobile" value="+91 98765 43210">
+              </div>
+              <div class="form-group">
+                <label>Organization</label>
+                <input type="text" id="profOrg" value="PVR Cinemas">
+              </div>
+              <button class="btn-primary" id="saveProfileBtn">
+                <span class="material-icons-round">save</span> Save Profile
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay hidden" id="modalOverlay">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <h3 id="modalTitle">Modal</h3>
+      <button class="modal-close" id="modalClose"><span class="material-icons-round">close</span></button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer" id="modalFooter"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="js/partner.js"></script>
+</body>
+</html>
