@@ -127,7 +127,8 @@ class OutboxRelaySchedulerTest {
 
         outboxRelayScheduler.processOutboxEvents();
 
-        verify(kafkaTemplate, never()).send(any(ProducerRecord.class));
+        verify(kafkaTemplate).send(argThat((ProducerRecord<String, Object> r) ->
+                r.topic().equals(com.krushna.moviebooking.booking.config.KafkaConfig.BOOKING_FAILED_TOPIC + ".DLT")));
         verify(outboxEventService).markAsFailed(eq(event), contains("Unknown eventType"), eq(5));
     }
 }

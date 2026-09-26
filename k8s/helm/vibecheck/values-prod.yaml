@@ -13,6 +13,9 @@ services:
       maxReplicas: 10
       targetCPUUtilizationPercentage: 65
       targetMemoryUtilizationPercentage: 75
+    pdb:
+      enabled: true
+      minAvailable: 2
     resources:
       requests:
         cpu: 500m
@@ -23,6 +26,9 @@ services:
 
   auth:
     replicaCount: 3
+    pdb:
+      enabled: true
+      minAvailable: 2
     autoscaling:
       enabled: true
       minReplicas: 3
@@ -80,6 +86,9 @@ services:
 
   booking:
     replicaCount: 4
+    pdb:
+      enabled: true
+      minAvailable: 2
     autoscaling:
       enabled: true
       minReplicas: 4
@@ -96,6 +105,9 @@ services:
 
   payment:
     replicaCount: 3
+    pdb:
+      enabled: true
+      minAvailable: 2
     autoscaling:
       enabled: true
       minReplicas: 3

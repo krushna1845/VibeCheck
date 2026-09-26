@@ -39,6 +39,8 @@ spec:
       initContainers:
         {{- include "vibecheck.waitForMySQL" . | nindent 8 }}
         {{- include "vibecheck.waitForKafka" . | nindent 8 }}
+      # 60s window allows consumer processing and email sending to finish
+      terminationGracePeriodSeconds: 60
       containers:
         - name: notification-service
           image: "{{ .Values.services.notification.image.repository }}:{{ .Values.services.notification.image.tag }}"

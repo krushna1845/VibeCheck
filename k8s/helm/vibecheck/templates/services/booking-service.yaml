@@ -39,6 +39,9 @@ spec:
       initContainers:
         {{- include "vibecheck.waitForMySQL" . | nindent 8 }}
         {{- include "vibecheck.waitForKafka" . | nindent 8 }}
+      # terminationGracePeriodSeconds must exceed preStop sleep (10s) + shutdown timeout (30s).
+      # 60 seconds provides a safe margin for in-flight booking transactions to complete.
+      terminationGracePeriodSeconds: 60
       containers:
         - name: booking-service
           image: "{{ .Values.services.booking.image.repository }}:{{ .Values.services.booking.image.tag }}"

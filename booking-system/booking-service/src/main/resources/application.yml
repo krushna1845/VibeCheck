@@ -1,7 +1,17 @@
 server:
   port: 8084
+  # Graceful shutdown: allows in-flight HTTP requests, Kafka consumers, and outbox
+  # relay operations to complete before the JVM exits. This is critical for booking
+  # transactions and outbox relay to avoid data inconsistency.
+  # Pairs with the preStop hook in Kubernetes (sleep 10) and Docker restart policies.
+  shutdown: graceful
 
 spring:
+  lifecycle:
+    # 30-second budget for active requests and Kafka consumers to finish.
+    # After this timeout, Spring forces shutdown regardless.
+    timeout-per-shutdown-phase: 30s
+
   application:
     name: booking-service
   profiles:

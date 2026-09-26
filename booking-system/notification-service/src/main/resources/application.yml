@@ -1,5 +1,13 @@
 server:
   port: 8086
+  # Graceful shutdown: allows in-flight Kafka consumer processing and notification
+  # sending (email/SMS) to complete before the JVM exits.
+  shutdown: graceful
+
+spring:
+  lifecycle:
+    # 30-second budget for Kafka consumer rebalance and notification dispatch.
+    timeout-per-shutdown-phase: 30s
 
 spring:
   application:

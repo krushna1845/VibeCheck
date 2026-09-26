@@ -1,5 +1,14 @@
 server:
   port: 8085
+  # Graceful shutdown: allows in-flight payment operations and webhook processing
+  # to complete before the JVM exits. Critical for payment integrity.
+  shutdown: graceful
+
+spring:
+  lifecycle:
+    # 30-second budget: payment gateway calls can take up to 5 seconds;
+    # 30 seconds provides sufficient margin for in-flight operations.
+    timeout-per-shutdown-phase: 30s
 
 spring:
   application:

@@ -1,0 +1,31 @@
+# Environment files
+.env
+*.env
+*.env.local
+
+# Backups and database dumps (Disaster Recovery security)
+backups/
+*.sql.gz
+*.sql.dump
+
+# Maven build targets
+target/
+**/target/
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# OS temporary files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Logs
+logs/
+**/logs/
+*.log

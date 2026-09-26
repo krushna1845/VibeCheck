@@ -180,3 +180,48 @@ jobs:
           name: pr-surefire-reports
           path: booking-system/**/target/surefire-reports/
           retention-days: 7
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 4: Operations & Disaster Recovery Verification (Milestone 31)
+  # ─────────────────────────────────────────────────────────────────────────────
+  ops-verification:
+    name: Ops & DR Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Validate Docker Compose Configuration
+        run: |
+          docker compose config --quiet
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.14.0'
+
+      - name: Run Helm Lint
+        run: |
+          helm lint k8s/helm/vibecheck
+          helm lint k8s/helm/vibecheck -f k8s/helm/vibecheck/values-prod.yaml
+          helm lint k8s/helm/vibecheck -f k8s/helm/vibecheck/values-minikube.yaml
+
+      - name: Validate Helm Template Rendering
+        run: |
+          helm template vibecheck k8s/helm/vibecheck --dry-run > /dev/null
+          helm template vibecheck k8s/helm/vibecheck -f k8s/helm/vibecheck/values-prod.yaml --dry-run > /dev/null
+
+      - name: Validate PowerShell Script Syntax
+        shell: pwsh
+        run: |
+          $scripts = Get-ChildItem -Recurse scripts/*.ps1
+          foreach ($script in $scripts) {
+              $err = $null
+              [System.Management.Automation.Language.Parser]::ParseFile($script.FullName, [ref]$null, [ref]$err)
+              if ($err) {
+                  Write-Error "Syntax error in $($script.FullName): $($err.Message)"
+                  exit 1
+              }
+              Write-Host "✅ Syntax valid: $($script.Name)"
+          }
+

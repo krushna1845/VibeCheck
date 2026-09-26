@@ -1,0 +1,18 @@
+{{- range $serviceKey, $serviceVal := .Values.services }}
+{{- if and $serviceVal.pdb $serviceVal.pdb.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $serviceVal.name }}-pdb
+  namespace: {{ $.Values.global.namespace }}
+  labels:
+    {{- include "vibecheck.labels" $ | nindent 4 }}
+    app.kubernetes.io/name: {{ $serviceVal.name }}
+spec:
+  minAvailable: {{ $serviceVal.pdb.minAvailable | default 1 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $serviceVal.name }}
+{{- end }}
+{{- end }}

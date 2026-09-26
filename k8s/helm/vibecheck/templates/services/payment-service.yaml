@@ -39,6 +39,8 @@ spec:
       initContainers:
         {{- include "vibecheck.waitForMySQL" . | nindent 8 }}
         {{- include "vibecheck.waitForKafka" . | nindent 8 }}
+      # 60s window allows payment transactions and webhooks to finish gracefully
+      terminationGracePeriodSeconds: 60
       containers:
         - name: payment-service
           image: "{{ .Values.services.payment.image.repository }}:{{ .Values.services.payment.image.tag }}"

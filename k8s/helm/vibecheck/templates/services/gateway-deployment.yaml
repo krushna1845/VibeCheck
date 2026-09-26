@@ -36,6 +36,8 @@ spec:
                         - gateway-service
                 topologyKey: kubernetes.io/hostname
       {{- end }}
+      # 45s window allows in-flight HTTP proxies to drain before gateway pod exits
+      terminationGracePeriodSeconds: 45
       containers:
         - name: gateway-service
           image: "{{ .Values.services.gateway.image.repository }}:{{ .Values.services.gateway.image.tag }}"

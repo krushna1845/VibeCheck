@@ -1,5 +1,14 @@
 server:
   port: 8079
+  # Graceful shutdown: allows in-flight proxied requests to complete before shutdown.
+  # The gateway is the entry point — graceful shutdown ensures no requests are dropped.
+  shutdown: graceful
+
+spring:
+  lifecycle:
+    # 30-second budget matches preStop hook in Kubernetes and typical downstream
+    # service response times (circuit breaker timeout: 3s, so buffer is ample).
+    timeout-per-shutdown-phase: 30s
 
 spring:
   application:
