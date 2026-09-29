@@ -57,6 +57,10 @@ infrastructure:
     persistence:
       storageClass: "standard"
       size: 2Gi
+    # Minikube: single broker is sufficient for local development
+    replicaCount: 1
+    replicationFactor: 1
+    minInSyncReplicas: 1
 
 services:
   gateway:

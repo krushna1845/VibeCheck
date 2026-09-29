@@ -5,6 +5,9 @@ global:
   imagePullPolicy: IfNotPresent
 
 # Shared Secrets and Perimeter Security
+# WARNING: These values are PLACEHOLDER defaults for local/CI only.
+# For production/staging, set externalSecrets.enabled=true and do NOT set these values.
+# NEVER commit real credentials to Git.
 secrets:
   dbRootPassword: "ChangeMeInProd@123"
   jwtSecret: "9a4f2c8d7e6b5a4c3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a"
@@ -25,6 +28,31 @@ secrets:
     from: "noreply@vibecheck.com"
     smsEnabled: false
     smsProvider: "MOCK"
+
+# External Secrets Operator Configuration
+# When enabled=true, secrets are sourced from an external provider (Vault/AWS/GCP/Azure).
+# The inline secrets.* values above are IGNORED when enabled=true.
+externalSecrets:
+  enabled: false           # Set true for staging/production
+  deployStore: false       # Set true if ClusterSecretStore not already deployed
+  secretStoreName: "vibecheck-secret-store"
+  secretPrefix: "vibecheck/production"
+  # Provider: vault | aws | gcpsm | azurekv
+  provider: "vault"
+  vault:
+    address: "http://vault.vault.svc.cluster.local:8200"
+    kvPath: "secret"
+    authMountPath: "kubernetes"
+    role: "vibecheck"
+    serviceAccount: "vibecheck-eso-sa"
+  aws:
+    region: "ap-south-1"
+    serviceAccount: "vibecheck-eso-sa"
+  gcp:
+    projectId: ""
+    clusterLocation: "asia-south1"
+    clusterName: ""
+    serviceAccount: "vibecheck-eso-sa"
 
 # Stateful Infrastructure Components
 infrastructure:
@@ -96,6 +124,11 @@ infrastructure:
       pullPolicy: IfNotPresent
     port: 9092
     internalPort: 29092
+    # HA configuration: 3 brokers for production durability
+    # replication.factor >= 3, min.insync.replicas >= 2
+    replicaCount: 3
+    replicationFactor: 3
+    minInSyncReplicas: 2
     persistence:
       enabled: true
       storageClass: ""

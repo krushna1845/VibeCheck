@@ -1,3 +1,26 @@
+---
+# Headless service for stable broker DNS: kafka-0.kafka-headless, kafka-1.kafka-headless, etc.
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-headless
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "vibecheck.labels" . | nindent 4 }}
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/component: messaging
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+    - name: kafka-internal
+      port: 9092
+      targetPort: 9092
+  selector:
+    app.kubernetes.io/name: kafka
+---
+# Client-facing service: applications use kafka:9092 for bootstrap
 apiVersion: v1
 kind: Service
 metadata:
@@ -6,11 +29,12 @@ metadata:
   labels:
     {{- include "vibecheck.labels" . | nindent 4 }}
     app.kubernetes.io/name: kafka
+    app.kubernetes.io/component: messaging
 spec:
   type: ClusterIP
   ports:
-    - name: kafka
+    - name: kafka-client
       port: {{ .Values.infrastructure.kafka.port }}
-      targetPort: kafka-port
+      targetPort: 9092
   selector:
     app.kubernetes.io/name: kafka

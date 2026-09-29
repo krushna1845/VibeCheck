@@ -14,7 +14,7 @@ data:
   MANAGEMENT_HEALTH_REDIS_ENABLED: "false"
   MANAGEMENT_HEALTH_REDISREACTIVE_ENABLED: "false"
   MANAGEMENT_HEALTH_MAIL_ENABLED: "false"
-  SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka-0.kafka-headless.{{ .Values.global.namespace }}.svc.cluster.local:9092,kafka-1.kafka-headless.{{ .Values.global.namespace }}.svc.cluster.local:9092,kafka-2.kafka-headless.{{ .Values.global.namespace }}.svc.cluster.local:9092"
   SHOW_SERVICE_URL: "http://show-service:8083"
   PAYMENT_GATEWAY_PROVIDER: {{ .Values.secrets.payment.provider | quote }}
   SMS_ENABLED: {{ .Values.secrets.mail.smsEnabled | quote }}

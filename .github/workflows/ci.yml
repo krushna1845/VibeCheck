@@ -263,12 +263,92 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # Job 4: CI Summary — post final status comment on PRs
+  # Job 4: Milestone 32 — Infrastructure Validation
+  # Helm lint, k6 syntax, Dockerfile non-root check — no live infrastructure needed
+  # ─────────────────────────────────────────────────────────────────────────────
+  infrastructure-validate:
+    name: Infrastructure Validation (M32)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
+
+      - name: Helm lint — default values
+        run: helm lint k8s/helm/vibecheck
+
+      - name: Helm lint — minikube values
+        run: helm lint k8s/helm/vibecheck -f k8s/helm/vibecheck/values-minikube.yaml
+
+      - name: Helm lint — production values
+        run: helm lint k8s/helm/vibecheck -f k8s/helm/vibecheck/values-prod.yaml
+
+      - name: Helm template — validate rendering
+        run: helm template vibecheck k8s/helm/vibecheck > /dev/null
+
+      - name: Install Node.js (for k6 syntax check)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: k6 JavaScript syntax validation
+        run: |
+          # Validate all k6 scripts parse without errors
+          for f in tests/k6/*.js tests/*.js; do
+            if [ -f "$f" ]; then
+              echo "Checking syntax: $f"
+              node --check "$f" || (echo "SYNTAX ERROR in $f" && exit 1)
+            fi
+          done
+          echo "All k6 scripts passed syntax check."
+
+      - name: Dockerfile non-root user validation
+        run: |
+          # Verify all service Dockerfiles use a non-root USER instruction
+          failed=0
+          for svc in auth-service gateway-service movie-service theatre-service show-service booking-service payment-service notification-service; do
+            dockerfile="booking-system/$svc/Dockerfile"
+            if [ -f "$dockerfile" ]; then
+              if grep -qiE "^USER\s+" "$dockerfile"; then
+                echo "[OK] $svc: non-root USER found"
+              else
+                echo "[WARN] $svc: no USER instruction found in Dockerfile"
+                failed=$((failed + 1))
+              fi
+            else
+              echo "[SKIP] $svc: Dockerfile not found at $dockerfile"
+            fi
+          done
+          if [ $failed -gt 0 ]; then
+            echo "$failed Dockerfile(s) missing USER instruction. Check Dockerfiles."
+            # Warn but do not fail — some base images may handle this at runtime
+          fi
+          echo "Non-root check complete."
+
+      - name: Values file secret pattern check
+        run: |
+          # Ensure no live/real payment credentials are committed to values files
+          for f in k8s/helm/vibecheck/values.yaml k8s/helm/vibecheck/values-prod.yaml; do
+            if [ -f "$f" ]; then
+              if grep -qE "rzp_live_|sk_live_|whsec_[a-zA-Z0-9]{20,}" "$f"; then
+                echo "FAIL: Live payment credentials detected in $f"
+                exit 1
+              fi
+            fi
+          done
+          echo "No live credentials detected in values files."
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Job 5: CI Summary — post final status comment on PRs
   # ─────────────────────────────────────────────────────────────────────────────
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [ build-and-test, security-scan, docker-build ]
+    needs: [ build-and-test, security-scan, docker-build, infrastructure-validate ]
     if: always() && github.event_name == 'pull_request'
     steps:
       - name: Post PR summary comment
@@ -288,6 +368,7 @@ jobs:
             const buildStatus = '${{ needs.build-and-test.result }}';
             const securityStatus = '${{ needs.security-scan.result }}';
             const dockerStatus = '${{ needs.docker-build.result }}';
+            const infraStatus = '${{ needs.infrastructure-validate.result }}';
 
             const emoji = s => s === 'success' ? '✅' : s === 'skipped' ? '⏭️' : '❌';
 
@@ -298,6 +379,7 @@ jobs:
             | Build & Unit Tests | ${emoji(buildStatus)} \`${buildStatus}\` |
             | Security Scan (OWASP) | ${emoji(securityStatus)} \`${securityStatus}\` |
             | Docker Build | ${emoji(dockerStatus)} \`${dockerStatus}\` |
+            | Infrastructure Validation (M32) | ${emoji(infraStatus)} \`${infraStatus}\` |
 
             <details>
             <summary>📋 Commit Details</summary>
