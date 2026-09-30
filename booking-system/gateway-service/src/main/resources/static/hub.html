@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VibeCheck — Enterprise Multi-Role Cinema Platform</title>
+  <meta name="description" content="VibeCheck Multi-Role Cinema Platform Hub: Customer Web App, Theatre Partner Portal, and Super Admin Management Console.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #090c14;
+      --bg-card: #111726;
+      --border: #1e293b;
+      --red: #E31837;
+      --cyan: #06B6D4;
+      --purple: #8B5CF6;
+      --white: #ffffff;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --radius: 16px;
+      --trans: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      position: relative;
+      overflow-x: hidden;
+    }
+    /* Glow background */
+    body::before {
+      content: '';
+      position: absolute;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(227, 24, 55, 0.15) 0%, transparent 70%);
+      top: -100px; left: -100px;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    body::after {
+      content: '';
+      position: absolute;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(6, 182, 212, 0.15) 0%, transparent 70%);
+      bottom: -100px; right: -100px;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1140px;
+      position: relative;
+      z-index: 10;
+      text-align: center;
+    }
+
+    .header-logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .header-logo .brand-icon {
+      font-size: 40px;
+      color: var(--red);
+      background: rgba(227, 24, 55, 0.12);
+      padding: 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(227, 24, 55, 0.25);
+    }
+    .brand-title {
+      font-size: 38px;
+      font-weight: 900;
+      letter-spacing: -1px;
+      color: var(--white);
+    }
+    .brand-title span { color: var(--red); }
+
+    .subtitle {
+      font-size: 17px;
+      color: var(--text-muted);
+      max-width: 650px;
+      margin: 0 auto 48px;
+      line-height: 1.6;
+    }
+    .arch-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+
+    /* Roles Grid */
+    .roles-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 28px;
+      margin-bottom: 48px;
+      text-align: left;
+    }
+
+    .role-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px 28px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: var(--trans);
+      text-decoration: none;
+      color: inherit;
+    }
+    .role-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+    }
+    .role-card::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+    }
+
+    /* Card Themes */
+    .card-customer:hover { border-color: var(--red); }
+    .card-customer::after { background: var(--red); }
+    .card-customer .role-icon { background: rgba(227, 24, 55, 0.12); color: var(--red); }
+    .card-customer .btn-launch { background: var(--red); }
+
+    .card-partner:hover { border-color: var(--cyan); }
+    .card-partner::after { background: var(--cyan); }
+    .card-partner .role-icon { background: rgba(6, 182, 212, 0.12); color: var(--cyan); }
+    .card-partner .btn-launch { background: var(--cyan); color: #041019; }
+
+    .card-admin:hover { border-color: var(--purple); }
+    .card-admin::after { background: var(--purple); }
+    .card-admin .role-icon { background: rgba(139, 92, 246, 0.12); color: var(--purple); }
+    .card-admin .btn-launch { background: var(--purple); }
+
+    .role-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .role-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .role-icon .material-icons-round { font-size: 28px; }
+    .role-badge {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-muted);
+    }
+
+    .role-title {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--white);
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+    .role-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 24px;
+      flex: 1;
+    }
+
+    .feature-list {
+      list-style: none;
+      margin-bottom: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .feature-list li {
+      font-size: 13px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .feature-list li .material-icons-round {
+      font-size: 18px;
+      color: var(--text-muted);
+    }
+
+    .btn-launch {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 20px;
+      border-radius: 10px;
+      color: var(--white);
+      font-weight: 700;
+      font-size: 14px;
+      transition: var(--trans);
+      text-decoration: none;
+    }
+    .btn-launch:hover {
+      filter: brightness(1.15);
+      gap: 12px;
+    }
+
+    .footer-note {
+      font-size: 13px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .footer-note b { color: var(--white); }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="arch-tag">
+      <span class="material-icons-round" style="font-size:16px;color:#10B981;">hub</span>
+      Option B: Role-Based Multi-Portal Architecture
+    </div>
+
+    <div class="header-logo">
+      <span class="material-icons-round brand-icon">movie_filter</span>
+      <h1 class="brand-title">Vibe<span>Check</span> Portals</h1>
+    </div>
+    <p class="subtitle">
+      Enterprise cinema ticketing ecosystem with three dedicated, specialized interfaces mirroring BookMyShow's real-world operational architecture.
+    </p>
+
+    <div class="roles-grid">
+
+      <!-- 1. Customer Web App -->
+      <a href="web/index.html" class="role-card card-customer">
+        <div class="role-top">
+          <div class="role-icon">
+            <span class="material-icons-round">local_activity</span>
+          </div>
+          <span class="role-badge">ROLE_USER</span>
+        </div>
+        <h2 class="role-title">Customer Web App</h2>
+        <p class="role-desc">
+          High-conversion movie discovery and ticketing client modeled after BookMyShow with rich media, interactive seating, and instant checkout.
+        </p>
+        <ul class="feature-list">
+          <li><span class="material-icons-round">check_circle</span> City-based cinema & movie browsing</li>
+          <li><span class="material-icons-round">check_circle</span> Silver, Gold, Platinum seat picker</li>
+          <li><span class="material-icons-round">check_circle</span> Cart, convenience fee & timer countdown</li>
+          <li><span class="material-icons-round">check_circle</span> Multi-gateway payment (UPI, Cards, Wallets)</li>
+          <li><span class="material-icons-round">check_circle</span> Digital E-Ticket pass with QR verification</li>
+        </ul>
+        <div class="btn-launch">
+          <span>Launch Web App</span>
+          <span class="material-icons-round">arrow_forward</span>
+        </div>
+      </a>
+
+      <!-- 2. Theatre Owner / Partner Portal -->
+      <a href="partner-portal/index.html" class="role-card card-partner">
+        <div class="role-top">
+          <div class="role-icon">
+            <span class="material-icons-round">storefront</span>
+          </div>
+          <span class="role-badge">ROLE_THEATRE_OWNER</span>
+        </div>
+        <h2 class="role-title">Theatre Partner Portal</h2>
+        <p class="role-desc">
+          Cinema operations suite for multiplex managers to configure auditoriums, schedule showtimes, operate counter POS, and track revenue.
+        </p>
+        <ul class="feature-list">
+          <li><span class="material-icons-round">check_circle</span> My Multiplexes & Screen management</li>
+          <li><span class="material-icons-round">check_circle</span> Interactive Seat Layout Visualizer</li>
+          <li><span class="material-icons-round">check_circle</span> Showtime scheduling & status toggles</li>
+          <li><span class="material-icons-round">check_circle</span> Dynamic Weekday / Weekend seat pricing</li>
+          <li><span class="material-icons-round">check_circle</span> Walk-in Box Office Point of Sale (POS)</li>
+        </ul>
+        <div class="btn-launch">
+          <span>Launch Partner Portal</span>
+          <span class="material-icons-round">arrow_forward</span>
+        </div>
+      </a>
+
+      <!-- 3. Super Admin Portal -->
+      <a href="admin-portal/index.html" class="role-card card-admin">
+        <div class="role-top">
+          <div class="role-icon">
+            <span class="material-icons-round">shield</span>
+          </div>
+          <span class="role-badge">ROLE_ADMIN</span>
+        </div>
+        <h2 class="role-title">Super Admin Portal</h2>
+        <p class="role-desc">
+          Central mission control for platform administrators to govern movies catalogue, platform users, transactions, and infrastructure health.
+        </p>
+        <ul class="feature-list">
+          <li><span class="material-icons-round">check_circle</span> Global Movies catalog CRUD & releases</li>
+          <li><span class="material-icons-round">check_circle</span> Platform-wide Theatres & City approvals</li>
+          <li><span class="material-icons-round">check_circle</span> Live Booking audit & Payment reconciliations</li>
+          <li><span class="material-icons-round">check_circle</span> Role-Based Access Control (RBAC) users</li>
+          <li><span class="material-icons-round">check_circle</span> Microservices health monitoring & metrics</li>
+        </ul>
+        <div class="btn-launch">
+          <span>Launch Admin Portal</span>
+          <span class="material-icons-round">arrow_forward</span>
+        </div>
+      </a>
+
+    </div>
+
+    <div class="footer-note">
+      <span class="material-icons-round" style="color:#10B981;font-size:16px;">lock</span>
+      Powered by <b>VibeCheck Microservices Architecture</b> &nbsp;·&nbsp; Spring Boot 3 &nbsp;·&nbsp; MySQL &nbsp;·&nbsp; Redis &nbsp;·&nbsp; Kafka
+    </div>
+  </div>
+
+</body>
+</html>

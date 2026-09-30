@@ -62,6 +62,9 @@ public class SecurityConfig {
                 // 1. Explicit public authentication endpoints
                 .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
 
+                // Static frontend assets and web portals
+                .requestMatchers("/", "/index.html", "/web/**", "/css/**", "/js/**", "/admin-portal/**", "/partner-portal/**", "/favicon.ico", "/*.html").permitAll()
+
                 // 2. Gateway health, route inspection, fallback endpoints
                 .requestMatchers("/gateway/**", "/fallback/**").permitAll()
 

@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VibeCheck Admin Console</title>
+  <meta name="description" content="VibeCheck Platform Administration Console — Manage movies, theatres, shows, bookings, and users.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<!-- ===== LOGIN SCREEN ===== -->
+<div id="loginScreen" class="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <span class="material-icons-round logo-icon">admin_panel_settings</span>
+      <h1>VibeCheck <span>Admin</span></h1>
+      <p class="login-subtitle">Platform Administration Console</p>
+    </div>
+    <form id="loginForm" autocomplete="off">
+      <div class="form-group">
+        <label for="loginEmail">Email</label>
+        <div class="input-icon">
+          <span class="material-icons-round">email</span>
+          <input type="email" id="loginEmail" placeholder="admin@vibecheck.com" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="loginPassword">Password</label>
+        <div class="input-icon">
+          <span class="material-icons-round">lock</span>
+          <input type="password" id="loginPassword" placeholder="Enter password" required>
+        </div>
+      </div>
+      <button type="submit" class="btn-primary btn-full" id="loginBtn">
+        <span class="material-icons-round">login</span> Sign In
+      </button>
+      <p class="login-hint">Access restricted to ROLE_ADMIN accounts only</p>
+    </form>
+  </div>
+</div>
+
+<!-- ===== MAIN APP ===== -->
+<div id="appShell" class="app-shell hidden">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <span class="material-icons-round">admin_panel_settings</span>
+      <span class="logo-text">VibeCheck <b>Admin</b></span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-section="dashboard">
+        <span class="material-icons-round">dashboard</span><span class="nav-label">Dashboard</span>
+      </a>
+      <a href="#" class="nav-item" data-section="movies">
+        <span class="material-icons-round">movie</span><span class="nav-label">Movies</span>
+      </a>
+      <a href="#" class="nav-item" data-section="theatres">
+        <span class="material-icons-round">theaters</span><span class="nav-label">Theatres</span>
+      </a>
+      <a href="#" class="nav-item" data-section="shows">
+        <span class="material-icons-round">event</span><span class="nav-label">Shows</span>
+      </a>
+      <a href="#" class="nav-item" data-section="bookings">
+        <span class="material-icons-round">confirmation_number</span><span class="nav-label">Bookings</span>
+      </a>
+      <a href="#" class="nav-item" data-section="users">
+        <span class="material-icons-round">people</span><span class="nav-label">Users</span>
+      </a>
+      <a href="#" class="nav-item" data-section="payments">
+        <span class="material-icons-round">payments</span><span class="nav-label">Payments</span>
+      </a>
+      <a href="#" class="nav-item" data-section="cities">
+        <span class="material-icons-round">location_city</span><span class="nav-label">Cities</span>
+      </a>
+      <a href="#" class="nav-item" data-section="settings">
+        <span class="material-icons-round">settings</span><span class="nav-label">Settings</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="admin-badge">
+        <span class="material-icons-round">shield</span>
+        <span>Super Admin</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content">
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <button class="topbar-toggle" id="sidebarToggle">
+        <span class="material-icons-round">menu</span>
+      </button>
+      <div class="topbar-search">
+        <span class="material-icons-round">search</span>
+        <input type="text" placeholder="Search movies, theatres, bookings..." id="globalSearch">
+      </div>
+      <div class="topbar-actions">
+        <button class="topbar-btn" title="Notifications" id="notifBtn">
+          <span class="material-icons-round">notifications</span>
+          <span class="notif-dot"></span>
+        </button>
+        <div class="topbar-user" id="topbarUser">
+          <div class="avatar">A</div>
+          <span class="user-name" id="adminName">Admin</span>
+          <span class="material-icons-round">expand_more</span>
+        </div>
+        <div class="user-dropdown hidden" id="userDropdown" style="width: 200px;">
+          <a href="../web/index.html" target="_blank"><span class="material-icons-round">local_activity</span> Customer Web</a>
+          <a href="../partner-portal/index.html" target="_blank"><span class="material-icons-round">storefront</span> Partner Portal</a>
+          <hr style="border: none; border-top: 1px solid var(--border); margin: 4px 0;">
+          <a href="#" id="logoutBtn"><span class="material-icons-round">logout</span> Logout</a>
+        </div>
+      </div>
+    </header>
+
+    <!-- CONTENT AREA -->
+    <div class="content-area" id="contentArea">
+
+      <!-- ===== DASHBOARD ===== -->
+      <section class="section active" id="sec-dashboard">
+        <div class="section-header">
+          <h2><span class="material-icons-round">dashboard</span> Dashboard Overview</h2>
+          <div class="header-actions">
+            <span class="date-label" id="dashDate"></span>
+          </div>
+        </div>
+        <div class="kpi-grid">
+          <div class="kpi-card kpi-red">
+            <div class="kpi-icon"><span class="material-icons-round">movie</span></div>
+            <div class="kpi-data"><span class="kpi-val" id="kpiMovies">0</span><span class="kpi-label">Total Movies</span></div>
+          </div>
+          <div class="kpi-card kpi-blue">
+            <div class="kpi-icon"><span class="material-icons-round">theaters</span></div>
+            <div class="kpi-data"><span class="kpi-val" id="kpiTheatres">0</span><span class="kpi-label">Active Theatres</span></div>
+          </div>
+          <div class="kpi-card kpi-green">
+            <div class="kpi-icon"><span class="material-icons-round">confirmation_number</span></div>
+            <div class="kpi-data"><span class="kpi-val" id="kpiBookings">0</span><span class="kpi-label">Total Bookings</span></div>
+          </div>
+          <div class="kpi-card kpi-orange">
+            <div class="kpi-icon"><span class="material-icons-round">payments</span></div>
+            <div class="kpi-data"><span class="kpi-val" id="kpiRevenue">₹0</span><span class="kpi-label">Revenue</span></div>
+          </div>
+          <div class="kpi-card kpi-purple">
+            <div class="kpi-icon"><span class="material-icons-round">people</span></div>
+            <div class="kpi-data"><span class="kpi-val" id="kpiUsers">0</span><span class="kpi-label">Registered Users</span></div>
+          </div>
+          <div class="kpi-card kpi-cyan">
+            <div class="kpi-icon"><span class="material-icons-round">event</span></div>
+            <div class="kpi-data"><span class="kpi-val" id="kpiShows">0</span><span class="kpi-label">Active Shows</span></div>
+          </div>
+        </div>
+        <div class="dash-charts">
+          <div class="chart-card">
+            <h3>Booking Trends (Last 7 Days)</h3>
+            <div class="chart-placeholder" id="bookingChart">
+              <div class="bar-chart" id="barChart"></div>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h3>Revenue by Category</h3>
+            <div class="donut-container" id="donutChart"></div>
+          </div>
+        </div>
+        <div class="dash-tables">
+          <div class="table-card">
+            <h3><span class="material-icons-round">trending_up</span> Recent Bookings</h3>
+            <table class="data-table">
+              <thead><tr><th>Ref</th><th>User</th><th>Movie</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+              <tbody id="recentBookingsBody">
+                <tr><td colspan="6" class="empty-state">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-card">
+            <h3><span class="material-icons-round">local_fire_department</span> Top Movies</h3>
+            <div class="top-movies-list" id="topMoviesList"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== MOVIES ===== -->
+      <section class="section" id="sec-movies">
+        <div class="section-header">
+          <h2><span class="material-icons-round">movie</span> Movie Management</h2>
+          <div class="header-actions">
+            <div class="filter-group">
+              <select id="movieStatusFilter">
+                <option value="">All Status</option>
+                <option value="COMING_SOON">Coming Soon</option>
+                <option value="NOW_SHOWING">Now Showing</option>
+                <option value="ENDED">Ended</option>
+              </select>
+              <input type="text" placeholder="Search movies..." id="movieSearch" class="search-input">
+            </div>
+            <button class="btn-primary" id="addMovieBtn">
+              <span class="material-icons-round">add</span> Add Movie
+            </button>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table" id="moviesTable">
+            <thead>
+              <tr>
+                <th>Poster</th><th>Title</th><th>Duration</th><th>Release Date</th>
+                <th>Rating</th><th>Status</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="moviesBody">
+              <tr><td colspan="7" class="empty-state">No movies found. Click "Add Movie" to begin.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="moviesPagination"></div>
+      </section>
+
+      <!-- ===== THEATRES ===== -->
+      <section class="section" id="sec-theatres">
+        <div class="section-header">
+          <h2><span class="material-icons-round">theaters</span> Theatre Management</h2>
+          <div class="header-actions">
+            <select id="theatreCityFilter"><option value="">All Cities</option></select>
+            <input type="text" placeholder="Search theatres..." id="theatreSearch" class="search-input">
+            <button class="btn-primary" id="addTheatreBtn">
+              <span class="material-icons-round">add</span> Add Theatre
+            </button>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table" id="theatresTable">
+            <thead>
+              <tr><th>Name</th><th>City</th><th>Address</th><th>Screens</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="theatresBody">
+              <tr><td colspan="6" class="empty-state">No theatres found.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="theatresPagination"></div>
+      </section>
+
+      <!-- ===== SHOWS ===== -->
+      <section class="section" id="sec-shows">
+        <div class="section-header">
+          <h2><span class="material-icons-round">event</span> Show Scheduling</h2>
+          <div class="header-actions">
+            <input type="date" id="showDateFilter" class="search-input">
+            <button class="btn-primary" id="addShowBtn">
+              <span class="material-icons-round">add</span> Schedule Show
+            </button>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table" id="showsTable">
+            <thead>
+              <tr><th>Movie</th><th>Theatre</th><th>Screen</th><th>Date & Time</th><th>Language</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="showsBody">
+              <tr><td colspan="7" class="empty-state">No shows found.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="showsPagination"></div>
+      </section>
+
+      <!-- ===== BOOKINGS ===== -->
+      <section class="section" id="sec-bookings">
+        <div class="section-header">
+          <h2><span class="material-icons-round">confirmation_number</span> Booking Management</h2>
+          <div class="header-actions">
+            <select id="bookingStatusFilter">
+              <option value="">All Status</option>
+              <option value="CONFIRMED">Confirmed</option>
+              <option value="PENDING">Pending</option>
+              <option value="CANCELLED">Cancelled</option>
+              <option value="EXPIRED">Expired</option>
+            </select>
+            <input type="text" placeholder="Search by reference..." id="bookingSearch" class="search-input">
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table" id="bookingsTable">
+            <thead>
+              <tr><th>Reference</th><th>User ID</th><th>Movie</th><th>Seats</th><th>Amount</th><th>Status</th><th>Created</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="bookingsBody">
+              <tr><td colspan="8" class="empty-state">No bookings found.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="bookingsPagination"></div>
+      </section>
+
+      <!-- ===== USERS ===== -->
+      <section class="section" id="sec-users">
+        <div class="section-header">
+          <h2><span class="material-icons-round">people</span> User Management</h2>
+          <div class="header-actions">
+            <input type="text" placeholder="Search users..." id="userSearch" class="search-input">
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table" id="usersTable">
+            <thead>
+              <tr><th>Avatar</th><th>Name</th><th>Email</th><th>Roles</th><th>Status</th><th>Joined</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="usersBody">
+              <tr><td colspan="7" class="empty-state">No users found.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===== PAYMENTS ===== -->
+      <section class="section" id="sec-payments">
+        <div class="section-header">
+          <h2><span class="material-icons-round">payments</span> Payment Monitoring</h2>
+          <div class="header-actions">
+            <select id="paymentStatusFilter">
+              <option value="">All Status</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="PENDING">Pending</option>
+              <option value="FAILED">Failed</option>
+              <option value="REFUNDED">Refunded</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table" id="paymentsTable">
+            <thead>
+              <tr><th>Payment ID</th><th>Booking Ref</th><th>User</th><th>Gateway</th><th>Amount</th><th>Status</th><th>Date</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="paymentsBody">
+              <tr><td colspan="8" class="empty-state">No payments found.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ===== CITIES ===== -->
+      <section class="section" id="sec-cities">
+        <div class="section-header">
+          <h2><span class="material-icons-round">location_city</span> City Management</h2>
+          <div class="header-actions">
+            <button class="btn-primary" id="addCityBtn">
+              <span class="material-icons-round">add</span> Add City
+            </button>
+          </div>
+        </div>
+        <div class="cities-grid" id="citiesGrid">
+          <div class="empty-state">No cities found.</div>
+        </div>
+      </section>
+
+      <!-- ===== SETTINGS ===== -->
+      <section class="section" id="sec-settings">
+        <div class="section-header">
+          <h2><span class="material-icons-round">settings</span> Platform Settings</h2>
+        </div>
+        <div class="settings-grid">
+          <div class="settings-card">
+            <h3><span class="material-icons-round">tune</span> General</h3>
+            <div class="setting-row"><label>Platform Name</label><input type="text" value="VibeCheck" id="settingPlatformName"></div>
+            <div class="setting-row"><label>Support Email</label><input type="email" value="support@vibecheck.com" id="settingSupportEmail"></div>
+            <div class="setting-row"><label>Convenience Fee (%)</label><input type="number" value="1.18" step="0.01" id="settingFee"></div>
+            <button class="btn-primary btn-sm" id="saveSettingsBtn">
+              <span class="material-icons-round">save</span> Save Changes
+            </button>
+          </div>
+          <div class="settings-card">
+            <h3><span class="material-icons-round">palette</span> API Endpoints</h3>
+            <div class="setting-row"><label>Gateway URL</label><input type="text" value="http://localhost:8080" id="settingGatewayUrl"></div>
+            <div class="setting-row"><label>Auth Service</label><input type="text" value="http://localhost:8081" id="settingAuthUrl"></div>
+            <div class="setting-row"><label>Movie Service</label><input type="text" value="http://localhost:8082" id="settingMovieUrl"></div>
+            <div class="setting-row"><label>Theatre Service</label><input type="text" value="http://localhost:8083" id="settingTheatreUrl"></div>
+            <div class="setting-row"><label>Show Service</label><input type="text" value="http://localhost:8084" id="settingShowUrl"></div>
+            <div class="setting-row"><label>Booking Service</label><input type="text" value="http://localhost:8085" id="settingBookingUrl"></div>
+            <div class="setting-row"><label>Payment Service</label><input type="text" value="http://localhost:8086" id="settingPaymentUrl"></div>
+            <button class="btn-primary btn-sm" id="saveEndpointsBtn">
+              <span class="material-icons-round">save</span> Save Endpoints
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<!-- ===== MODAL OVERLAY ===== -->
+<div class="modal-overlay hidden" id="modalOverlay">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <h3 id="modalTitle">Modal</h3>
+      <button class="modal-close" id="modalClose"><span class="material-icons-round">close</span></button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer" id="modalFooter"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="js/admin.js"></script>
+</body>
+</html>

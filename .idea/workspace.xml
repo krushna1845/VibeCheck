@@ -5,15 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="44331999-ed4b-4c71-8ae0-a90d1f2bd39a" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.github/workflows/ci.yml" beforeDir="false" afterPath="$PROJECT_DIR$/.github/workflows/ci.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/k8s/helm/vibecheck/templates/configmaps/common-config.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/k8s/helm/vibecheck/templates/configmaps/common-config.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/k8s/helm/vibecheck/templates/infrastructure/kafka-service.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/k8s/helm/vibecheck/templates/infrastructure/kafka-service.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/k8s/helm/vibecheck/templates/infrastructure/kafka-statefulset.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/k8s/helm/vibecheck/templates/infrastructure/kafka-statefulset.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/k8s/helm/vibecheck/templates/infrastructure/zookeeper-deployment.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/k8s/helm/vibecheck/templates/infrastructure/zookeeper-deployment.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/k8s/helm/vibecheck/templates/secrets/vibecheck-secrets.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/k8s/helm/vibecheck/templates/secrets/vibecheck-secrets.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/k8s/helm/vibecheck/values-minikube.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/k8s/helm/vibecheck/values-minikube.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/k8s/helm/vibecheck/values.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/k8s/helm/vibecheck/values.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/admin-portal/js/admin.js" beforeDir="false" afterPath="$PROJECT_DIR$/admin-portal/js/admin.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/booking-system/gateway-service/src/main/java/com/krushna/moviebooking/gateway/security/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/booking-system/gateway-service/src/main/java/com/krushna/moviebooking/gateway/security/SecurityConfig.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/web/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/web/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/web/js/app.js" beforeDir="false" afterPath="$PROJECT_DIR$/web/js/app.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
