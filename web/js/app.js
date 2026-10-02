@@ -333,7 +333,7 @@ function renderEvents() {
 // MOVIE DETAIL MODAL & REAL SHOWTIME FETCH
 // ============================================================
 async function openMovieDetail(id) {
-  const m = state.movies.find(x => String(x.id) === String(id));
+  const m = state.movies.find(x => String(x.id) === String(id)) || ((typeof id === 'number' || !isNaN(Number(id))) ? state.movies[Number(id)] : null);
   if (!m) return;
   state.selectedMovie = m;
 
@@ -386,11 +386,11 @@ async function loadMovieShows(movie) {
     if (shows.length > 0) {
       renderRealShows(shows, movie);
     } else {
-      renderDefaultShows(movie);
+      showContainer.innerHTML = '<div style="text-align:center;padding:30px 15px;color:#888;"><h5>No live scheduled shows found</h5><p style="font-size:13px;margin-top:6px;">Check other dates or select another movie from the catalog.</p></div>';
     }
   } catch (err) {
-    console.debug('[VibeCheck] Backend shows unavailable for this movie, rendering schedule.');
-    renderDefaultShows(movie);
+    console.warn('[VibeCheck] Backend shows unavailable for this movie:', err.message);
+    showContainer.innerHTML = `<div style="text-align:center;padding:30px 15px;color:#e74c3c;"><h5>Unable to load shows</h5><p style="font-size:13px;margin-top:6px;">${err.message || 'Please check connection to API Gateway'}</p></div>`;
   }
 }
 
@@ -399,7 +399,7 @@ function renderRealShows(shows, movie) {
   container.innerHTML = `
     <div class="th-show">
       <div class="th-name">
-        <span>PVR: Megaplex (VibeCheck Partner)</span>
+        <span>VibeCheck Partner Cinemas</span>
         <div class="th-features"><span class="th-feat">Dolby Atmos</span><span class="th-feat">4K Laser</span><span class="th-feat">M-Ticket</span></div>
       </div>
       <div class="time-slots">
@@ -407,7 +407,7 @@ function renderRealShows(shows, movie) {
           const dt = new Date(s.startTime);
           const timeStr = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           return `
-            <button class="time-slot" onclick="selectRealShow('${s.id}', 'PVR: Megaplex', '${timeStr}', this)">
+            <button class="time-slot" onclick="selectRealShow('${s.id}', 'VibeCheck Partner Cinemas', '${timeStr}', this)">
               ${timeStr} · ₹${s.basePrice || 250}
             </button>
           `;
@@ -417,52 +417,12 @@ function renderRealShows(shows, movie) {
   `;
 }
 
-function renderDefaultShows(movie) {
-  const container = document.getElementById('theatreShows');
-  const theatres = [
-    { name: 'PVR: Phoenix Mall', features: ['Dolby Atmos', 'M-Ticket'] },
-    { name: 'INOX: Megaplex', features: ['4K', 'Recliner'] },
-    { name: 'Cinepolis: Grand', features: ['IMAX', 'D-BOX'] }
-  ];
-  const times = ['10:00 AM', '01:30 PM', '04:45 PM', '07:30 PM', '10:15 PM'];
-
-  container.innerHTML = theatres.map((t, ti) => `
-    <div class="th-show">
-      <div class="th-name">
-        <span>${t.name}</span>
-        <div class="th-features">${t.features.map(f => `<span class="th-feat">${f}</span>`).join('')}</div>
-      </div>
-      <div class="time-slots">
-        ${times.slice(0, 3 + ti).map(ts => `
-          <button class="time-slot" onclick="selectShowTime('${t.name}', '${ts}', this, '${movie.id}')">
-            ${ts}
-          </button>
-        `).join('')}
-      </div>
-    </div>
-  `).join('');
-}
-
 function selectRealShow(showId, theatreName, timeStr, btnEl) {
   state.selectedShow = { id: showId };
   state.selectedTheatre = theatreName;
   state.selectedTime = timeStr;
   document.querySelectorAll('.time-slot').forEach(s => s.classList.remove('active'));
   btnEl.classList.add('active');
-
-  setTimeout(() => {
-    closeMovieModal();
-    startBooking();
-  }, 300);
-}
-
-function selectShowTime(theatre, time, el, movieId) {
-  document.querySelectorAll('.time-slot').forEach(s => s.classList.remove('active'));
-  el.classList.add('active');
-  state.selectedTheatre = theatre;
-  state.selectedTime = time;
-  // Synthetic show UUID for fallback
-  state.selectedShow = { id: 'f250aaf6-b9b9-4569-9667-bfc29707a1ae' };
 
   setTimeout(() => {
     closeMovieModal();
@@ -514,10 +474,22 @@ function selectDate(dateStr, el) {
 async function startBooking() {
   if (!state.selectedMovie) return;
 
+  if (!state.selectedShow || !state.selectedShow.id) {
+    const firstShowBtn = document.querySelector('#theatreShows .time-slot');
+    if (firstShowBtn) {
+      firstShowBtn.click();
+      return;
+    } else {
+      showToast('⚠️ Please select a showtime to book tickets.');
+      return;
+    }
+  }
+
   state.selectedSeats = [];
   state.foodCart = {};
   state.currentBooking = null;
 
+  closeMovieModal();
   setStep(1);
   showPage('booking');
 
@@ -576,12 +548,12 @@ async function renderSeatMap() {
         state.showSeats = seats;
       }
     } catch (e) {
-      console.debug('[VibeCheck] Show seat API returned error/unavailable, falling back to layout.');
+      console.warn('[VibeCheck] Show seat API error:', e.message);
     }
   }
 
-  const bookedSeats = generateBookedSeats();
   let html = '';
+  let seatIndex = 0;
 
   SEAT_CATEGORIES.forEach(cat => {
     html += `<div class="seat-category">
@@ -597,22 +569,31 @@ async function renderSeatMap() {
         if (c === mid + 1) rowHtml += `<div class="seat-gap"></div>`;
         const seatId = `${row}${c}`;
 
-        let isBooked = bookedSeats.has(seatId);
-        let showSeatUuid = '00000000-0000-0000-0000-' + seatId.padStart(12, '0');
+        let isBooked = false;
+        let showSeatUuid = null;
+        let seatPrice = cat.price;
 
-        // Match against real backend seat if loaded
-        if (realSeats) {
-          const match = realSeats.find(s => s.seatNumber === seatId);
+        if (realSeats && realSeats.length > 0) {
+          // 1. Try matching by seatNumber if returned
+          let match = realSeats.find(s => s.seatNumber === seatId);
+          // 2. Sequential assignment from real backend show seats
+          if (!match && seatIndex < realSeats.length) {
+            match = realSeats[seatIndex];
+          }
           if (match) {
             showSeatUuid = match.id;
             isBooked = (match.status === 'BOOKED' || match.status === 'LOCKED');
+            if (match.price) seatPrice = Number(match.price);
           }
         }
+        seatIndex++;
 
-        rowHtml += `<button class="seat ${isBooked ? 'booked' : ''}" id="seat-${seatId}"
-          data-id="${seatId}" data-price="${cat.price}" data-cat="${cat.name}" data-showseatid="${showSeatUuid}"
-          onclick="${isBooked ? '' : `toggleSeat(this)`}"
-          title="${isBooked ? 'Unavailable' : seatId + ' - ₹' + cat.price}">${c}</button>`;
+        const isSelectable = !isBooked && !!showSeatUuid;
+
+        rowHtml += `<button class="seat ${isBooked ? 'booked' : ''} ${!showSeatUuid ? 'unavailable' : ''}" id="seat-${seatId}"
+          data-id="${seatId}" data-price="${seatPrice}" data-cat="${cat.name}" data-showseatid="${showSeatUuid || ''}"
+          ${isSelectable ? `onclick="toggleSeat(this)"` : 'disabled'}
+          title="${isBooked ? 'Unavailable / Booked' : !showSeatUuid ? 'Unavailable' : seatId + ' - ₹' + seatPrice}">${c}</button>`;
       }
       rowHtml += `</div>`;
       html += rowHtml;
@@ -622,12 +603,6 @@ async function renderSeatMap() {
   });
 
   seatMapEl.innerHTML = html;
-}
-
-function generateBookedSeats() {
-  const booked = new Set();
-  ['A3', 'A4', 'C7', 'C8', 'D5', 'G9', 'G10', 'H2', 'H3'].forEach(s => booked.add(s));
-  return booked;
 }
 
 function toggleSeat(el) {
@@ -692,13 +667,24 @@ async function goToFood() {
   }
 
   const btnProceed = document.getElementById('btnProceed');
-  const originalText = btnProceed.textContent;
-  btnProceed.disabled = true;
-  btnProceed.innerHTML = '<span class="spinner" style="display:inline-block;width:14px;height:14px;margin-right:6px"></span> Reserving Seats...';
+  const originalText = btnProceed ? btnProceed.textContent : 'Proceed ›';
+  if (btnProceed) {
+    btnProceed.disabled = true;
+    btnProceed.innerHTML = '<span class="spinner" style="display:inline-block;width:14px;height:14px;margin-right:6px"></span> Reserving Seats...';
+  }
 
   try {
-    const showId = (state.selectedShow && state.selectedShow.id) || 'f250aaf6-b9b9-4569-9667-bfc29707a1ae';
-    const showSeatIds = state.selectedSeats.map(s => s.showSeatId);
+    const showId = state.selectedShow && state.selectedShow.id;
+    if (!showId) {
+      showToast('⚠️ No show selected. Please select a show first.');
+      return;
+    }
+
+    const showSeatIds = state.selectedSeats.map(s => s.showSeatId).filter(Boolean);
+    if (showSeatIds.length === 0) {
+      showToast('⚠️ Please select at least one valid seat.');
+      return;
+    }
 
     // Call Real Booking API
     const bookingResult = await window.VibeCheckApi.bookings.createBooking({
@@ -709,6 +695,8 @@ async function goToFood() {
     });
 
     state.currentBooking = bookingResult.data || bookingResult;
+    // Set persistent payment idempotency key for this reservation attempt
+    state.currentBooking.paymentIdempotencyKey = window.VibeCheckApi.generateUUID();
     console.log('[VibeCheck Booking] Reservation successful | Ref:', state.currentBooking.bookingReference);
 
     setStep(2);
@@ -720,20 +708,13 @@ async function goToFood() {
       showToast('⚠️ Seat Conflict: One or more selected seats were just reserved by another user. Please choose alternative seats.');
       await renderSeatMap();
     } else {
-      // In offline/mock test environments, generate a resilient pending booking
-      console.info('[VibeCheck] Fallback reservation mode activated.');
-      state.currentBooking = {
-        id: window.VibeCheckApi.generateUUID(),
-        bookingReference: 'BK' + Date.now().toString().slice(-10).toUpperCase(),
-        totalAmount: state.selectedSeats.reduce((s, x) => s + x.price, 0),
-        status: 'PENDING'
-      };
-      setStep(2);
-      updateFoodSummary();
+      showToast('❌ Seat Reservation Failed: ' + (err.message || 'Unable to reserve seats. Please retry.'));
     }
   } finally {
-    btnProceed.disabled = false;
-    btnProceed.textContent = originalText;
+    if (btnProceed) {
+      btnProceed.disabled = false;
+      btnProceed.textContent = originalText;
+    }
   }
 }
 
@@ -885,7 +866,7 @@ function fmtExpiry(el) {
 async function processPayment() {
   if (state.isProcessingPayment) return;
 
-  if (!state.currentBooking) {
+  if (!state.currentBooking || !state.currentBooking.bookingReference) {
     showToast('⚠️ No active reservation found. Please select seats first.');
     showPage('home');
     return;
@@ -906,50 +887,57 @@ async function processPayment() {
   try {
     console.log('[VibeCheck Payment] Initiating payment for booking:', state.currentBooking.bookingReference);
 
-    // 1. Call Payment Service (POST /api/v1/payments)
-    let paymentId = window.VibeCheckApi.generateUUID();
-    try {
-      const paymentRes = await window.VibeCheckApi.payments.initiatePayment({
-        bookingId: state.currentBooking.id,
-        userId: state.currentUser.id,
-        amount: grand,
-        currency: 'INR',
-        paymentMethod: state.selectedPayMethod || 'UPI',
-        bookingReference: state.currentBooking.bookingReference
-      });
-      if (paymentRes && paymentRes.paymentId) {
-        paymentId = paymentRes.paymentId;
-      }
-      console.log('[VibeCheck Payment] Payment initiated | ID:', paymentId);
-    } catch (payErr) {
-      console.warn('[VibeCheck Payment] Remote payment service notice:', payErr.message);
+    // Reuse deterministic idempotency key for this booking reservation
+    if (!state.currentBooking.paymentIdempotencyKey) {
+      state.currentBooking.paymentIdempotencyKey = window.VibeCheckApi.generateUUID();
     }
+    const idempotencyKey = state.currentBooking.paymentIdempotencyKey;
 
-    // 2. Call Booking Service Confirm (POST /api/v1/bookings/confirm)
-    let confirmedBooking = state.currentBooking;
-    try {
-      const confirmRes = await window.VibeCheckApi.bookings.confirmBooking({
-        bookingReference: state.currentBooking.bookingReference,
-        paymentId: String(paymentId)
-      });
-      confirmedBooking = confirmRes.data || confirmRes;
-      console.log('[VibeCheck Booking] Confirmation verified | Status:', confirmedBooking.status);
-    } catch (confErr) {
-      console.warn('[VibeCheck Booking] Remote confirmation notice:', confErr.message);
-    }
-
-    // 3. Mark booking confirmed in local state
-    const confirmedRecord = {
-      id: state.currentBooking.bookingReference,
+    // 1. Call Real Payment Service (POST /api/v1/payments)
+    const paymentRes = await window.VibeCheckApi.payments.initiatePayment({
+      bookingId: state.currentBooking.id,
+      userId: state.currentUser.id,
+      amount: grand,
+      currency: 'INR',
+      paymentMethod: state.selectedPayMethod || 'UPI',
       bookingReference: state.currentBooking.bookingReference,
+      idempotencyKey: idempotencyKey
+    });
+
+    const paymentId = paymentRes.paymentId || paymentRes.id;
+    if (!paymentId) {
+      throw new Error('Payment service response did not contain a valid payment ID.');
+    }
+    console.log('[VibeCheck Payment] Payment initiated | ID:', paymentId, '| Status:', paymentRes.status);
+
+    if (paymentRes.status === 'FAILED') {
+      throw new Error(paymentRes.failureReason || 'Payment declined by gateway.');
+    }
+
+    // 2. Call Real Booking Service Confirm (POST /api/v1/bookings/confirm)
+    const confirmRes = await window.VibeCheckApi.bookings.confirmBooking({
+      bookingReference: state.currentBooking.bookingReference,
+      paymentId: String(paymentId)
+    });
+
+    const confirmedBooking = confirmRes.data || confirmRes;
+    if (!confirmedBooking || (confirmedBooking.status && confirmedBooking.status !== 'CONFIRMED')) {
+      throw new Error('Booking confirmation failed. Status: ' + (confirmedBooking?.status || 'UNKNOWN'));
+    }
+    console.log('[VibeCheck Booking] Confirmation verified | Status:', confirmedBooking.status);
+
+    // 3. Mark booking confirmed in local state with verified backend data
+    const confirmedRecord = {
+      id: confirmedBooking.bookingReference || state.currentBooking.bookingReference,
+      bookingReference: confirmedBooking.bookingReference || state.currentBooking.bookingReference,
       movieId: state.selectedMovie?.id,
       title: state.selectedMovie?.title || 'Movie',
       poster: state.selectedMovie?.poster,
-      theatre: state.selectedTheatre || 'PVR: Megaplex',
+      theatre: state.selectedTheatre || 'VibeCheck Partner Cinemas',
       dt: `${state.selectedDate || 'Today'} · ${state.selectedTime || '06:45 PM'}`,
       seats: state.selectedSeats.map(s => s.id).join(', '),
       format: (state.selectedMovie?.formats && state.selectedMovie.formats[0]) || '2D',
-      amount: grand,
+      amount: confirmedBooking.totalAmount || grand,
       status: 'confirmed',
       createdAt: new Date().toISOString()
     };
@@ -971,7 +959,7 @@ async function processPayment() {
     state.isProcessingPayment = false;
     if (btnPay) btnPay.disabled = false;
     console.error('[VibeCheck Payment] Payment processing failed:', fatalErr);
-    showToast('❌ Payment could not be completed: ' + fatalErr.message);
+    showToast('❌ Payment Failed: ' + (fatalErr.message || 'Payment could not be completed'));
   }
 }
 
@@ -1253,22 +1241,8 @@ function obInput(el, i) {
 }
 
 async function verifyOTP() {
-  const otp = Array.from(document.querySelectorAll('.ob')).map(b => b.value).join('');
-  if (otp.length < 6) {
-    showToast('Please enter the 6-digit OTP');
-    return;
-  }
-  const mobile = document.getElementById('mobileIn').value;
-  // Try authenticating or login as mobile user
-  loginUser({
-    id: 'eb6ee2de-d76c-478a-9431-3ed733c93232',
-    name: 'Mobile Customer',
-    firstName: 'Mobile',
-    lastName: 'Customer',
-    email: 'user' + mobile.slice(-4) + '@vibecheck.local',
-    phoneNumber: '+91' + mobile,
-    roles: ['ROLE_CUSTOMER']
-  });
+  showToast('ℹ️ Mobile OTP service is currently migrating. Please sign in or register with your Email & Password.');
+  setLTab('email');
 }
 
 // REAL EMAIL LOGIN
@@ -1282,28 +1256,29 @@ async function emailLogin() {
   }
 
   const btn = event?.currentTarget || document.querySelector('#lf-login .btn-otp');
-  const originalText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = 'Signing In...';
+  const originalText = btn ? btn.textContent : 'Sign In';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Signing In...';
+  }
 
   try {
     const authRes = await window.VibeCheckApi.auth.login({ email, password });
     window.VibeCheckApi.Storage.saveAuth(authRes);
 
-    const user = authRes.user || {
-      id: 'eb6ee2de-d76c-478a-9431-3ed733c93232',
-      email: email,
-      name: email.split('@')[0],
-      roles: ['ROLE_CUSTOMER']
-    };
+    if (!authRes || !authRes.user || !authRes.user.id) {
+      throw new Error('Authentication response did not contain user profile');
+    }
 
-    loginUser(user);
+    loginUser(authRes.user);
   } catch (err) {
     console.warn('[VibeCheck Auth] Login failed:', err.message);
     showToast('❌ ' + (err.message || 'Invalid email or password'));
   } finally {
-    btn.disabled = false;
-    btn.textContent = originalText;
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
   }
 }
 
@@ -1328,9 +1303,11 @@ async function emailSignup() {
   const lastName = nameParts.slice(1).join(' ') || 'User';
 
   const btn = event?.currentTarget || document.querySelector('#lf-signup .btn-otp');
-  const originalText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = 'Creating Account...';
+  const originalText = btn ? btn.textContent : 'Create Account';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Creating Account...';
+  }
 
   try {
     const authRes = await window.VibeCheckApi.auth.register({
@@ -1343,35 +1320,27 @@ async function emailSignup() {
     });
 
     window.VibeCheckApi.Storage.saveAuth(authRes);
-    const user = authRes.user || {
-      id: window.VibeCheckApi.generateUUID(),
-      email,
-      firstName,
-      lastName,
-      phoneNumber: phone,
-      roles: ['ROLE_CUSTOMER']
-    };
 
-    loginUser(user);
+    if (!authRes || !authRes.user || !authRes.user.id) {
+      throw new Error('Registration response did not contain user profile');
+    }
+
+    loginUser(authRes.user);
     showToast('🎉 Account created successfully!');
   } catch (err) {
     console.warn('[VibeCheck Auth] Registration failed:', err.message);
     showToast('❌ ' + (err.message || 'Could not register account'));
   } finally {
-    btn.disabled = false;
-    btn.textContent = originalText;
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
   }
 }
 
 function socialLogin(provider) {
-  loginUser({
-    id: 'eb6ee2de-d76c-478a-9431-3ed733c93232',
-    name: 'Google User',
-    email: 'user@gmail.com',
-    phoneNumber: '+919876543210',
-    roles: ['ROLE_CUSTOMER'],
-    avatar: 'G'
-  });
+  showToast('ℹ️ ' + provider + ' SSO is reserved for Enterprise. Please sign in with Email & Password.');
+  setLTab('email');
 }
 
 function loginUser(user) {

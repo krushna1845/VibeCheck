@@ -726,3 +726,21 @@ img { display: block; }
   .slbl { display: none; }
   .step-line { width: 30px; }
 }
+
+/* Tablet Breakpoint (768px) */
+@media (max-width: 768px) {
+  .header-inner { padding: 0 12px; gap: 8px; }
+  .movies-grid { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .seat-map { overflow-x: auto; padding: 10px 0; -webkit-overflow-scrolling: touch; }
+  .modal { max-width: 95vw; }
+}
+
+/* Mobile Phone Breakpoint (390px) */
+@media (max-width: 390px) {
+  .movies-grid { grid-template-columns: 1fr; }
+  .seat { width: 28px; height: 28px; font-size: 11px; margin: 2px; }
+  .login-modal { width: 98vw; padding: 18px 12px; }
+  .ticket-modal { width: 98vw; padding: 16px 10px; }
+  .et-qr canvas { width: 90px; height: 90px; }
+  .btn-pay, .btn-proceed { font-size: 15px; padding: 12px; }
+}

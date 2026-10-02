@@ -126,7 +126,7 @@
       clearTimeout(timeoutId);
 
       // Handle 401 Unauthorized (Token Expiration / Invalid Token)
-      if (response.status === 401 && !isRetry && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/register')) {
+      if (response.status === 401 && !isRetry && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/register') && !endpoint.includes('/auth/refresh')) {
         const refreshToken = Storage.getRefreshToken();
         if (refreshToken) {
           if (isRefreshing) {

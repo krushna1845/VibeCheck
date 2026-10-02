@@ -17,8 +17,8 @@
       return stored.trim().replace(/\/+$/, '');
     }
 
-    // 3. Same-origin detection: if accessed via Gateway (port 8079) or standard reverse proxy (80/443)
-    if (window.location && window.location.port === '8079') {
+    // 3. Same-origin detection: if accessed via Gateway (port 8079) or standard reverse proxy (80/443 or empty port)
+    if (window.location && (window.location.port === '8079' || window.location.port === '80' || window.location.port === '' || window.location.port === '443') && window.location.protocol.startsWith('http')) {
       return window.location.origin;
     }
 
@@ -30,7 +30,7 @@
     apiBaseUrl: determineApiBaseUrl(),
     timeoutMs: 12000,
     maxRetries: 2,
-    version: '1.0.0-m33',
+    version: '1.0.0-m34',
 
     setGatewayUrl(url) {
       if (!url) {
