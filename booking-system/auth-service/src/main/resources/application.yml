@@ -38,8 +38,10 @@ spring:
     port: ${SPRING_REDIS_PORT:6379}
 
 jwt:
-  # Secret key (at least 256 bits / 32 bytes for HS256)
-  secret: 9a4f2c8d7e6b5a4c3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a
+  # Secret key (at least 256 bits / 32 bytes for HS256).
+  # PRODUCTION: This MUST be set via JWT_SECRET environment variable or Kubernetes Secret.
+  # The default below is a CI/local fallback ONLY — never use it in production.
+  secret: ${JWT_SECRET:9a4f2c8d7e6b5a4c3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a}
   # 24 hours access token validity (in milliseconds)
   access-token-expiration-ms: 86400000
   # 7 days refresh token validity (in milliseconds)
