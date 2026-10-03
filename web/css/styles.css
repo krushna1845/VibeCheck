@@ -65,9 +65,13 @@ img { display: block; }
   white-space: nowrap;
 }
 .city-drop {
+  display: none;
   position: absolute; top: calc(100% + 8px); left: 0; width: 220px;
   background: var(--white); border-radius: var(--radius);
   box-shadow: var(--shadow-lg); z-index: 200; overflow: hidden;
+}
+.city-drop.show {
+  display: block;
 }
 .city-search-row { padding: 10px; border-bottom: 1px solid var(--border); }
 .city-search-row input { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px; }

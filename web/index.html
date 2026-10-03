@@ -22,17 +22,17 @@
         <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
         <span id="selCity">Mumbai</span>
         <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
-        <div class="city-drop" id="cityDrop">
-          <div class="city-search-row"><input type="text" placeholder="Search city..." id="cityQ" oninput="filterCities(this.value)" onclick="event.stopPropagation()" /></div>
+        <div class="city-drop" id="cityDrop" onclick="event.stopPropagation()">
+          <div class="city-search-row"><input type="text" placeholder="Search city..." id="cityQ" oninput="filterCities(this.value)" onkeydown="handleCitySearchKey(event)" onclick="event.stopPropagation()" /></div>
           <div class="city-items" id="cityItems">
-            <div class="ci active" onclick="selectCity('Mumbai')">Mumbai</div>
-            <div class="ci" onclick="selectCity('Delhi')">Delhi</div>
-            <div class="ci" onclick="selectCity('Bangalore')">Bangalore</div>
-            <div class="ci" onclick="selectCity('Hyderabad')">Hyderabad</div>
-            <div class="ci" onclick="selectCity('Chennai')">Chennai</div>
-            <div class="ci" onclick="selectCity('Kolkata')">Kolkata</div>
-            <div class="ci" onclick="selectCity('Pune')">Pune</div>
-            <div class="ci" onclick="selectCity('Ahmedabad')">Ahmedabad</div>
+            <div class="ci active" onclick="selectCity('Mumbai', event)">Mumbai</div>
+            <div class="ci" onclick="selectCity('Delhi', event)">Delhi</div>
+            <div class="ci" onclick="selectCity('Bangalore', event)">Bangalore</div>
+            <div class="ci" onclick="selectCity('Hyderabad', event)">Hyderabad</div>
+            <div class="ci" onclick="selectCity('Chennai', event)">Chennai</div>
+            <div class="ci" onclick="selectCity('Kolkata', event)">Kolkata</div>
+            <div class="ci" onclick="selectCity('Pune', event)">Pune</div>
+            <div class="ci" onclick="selectCity('Ahmedabad', event)">Ahmedabad</div>
           </div>
         </div>
       </div>
@@ -395,53 +395,30 @@
   <div class="modal login-modal" onclick="event.stopPropagation()">
     <button class="mclose" onclick="closeLoginModal()">✕</button>
     <div class="login-brand"><span class="logo-v">Vibe</span><span class="logo-c">Check</span></div>
-    <h2 class="login-h">Sign in to continue</h2>
+    <h2 class="login-h" id="loginModalTitle">Sign In to VibeCheck</h2>
     <div class="ltabs">
-      <button class="ltab active" id="lt-mobile" onclick="setLTab('mobile')">Mobile</button>
-      <button class="ltab" id="lt-email" onclick="setLTab('email')">Email</button>
+      <button class="ltab active" id="lt-signin" onclick="setLTab('signin')">Sign In</button>
+      <button class="ltab" id="lt-signup" onclick="setLTab('signup')">Create Account</button>
+      <button class="ltab" id="lt-mobile" onclick="setLTab('mobile')">Mobile OTP</button>
     </div>
-    <!-- Mobile -->
-    <div id="lp-mobile">
-      <div id="ls1">
-        <div class="fg">
-          <label>Mobile Number</label>
-          <div class="mobile-row">
-            <span class="cc">🇮🇳 +91</span>
-            <input type="tel" id="mobileIn" placeholder="10-digit mobile number" maxlength="10" />
-          </div>
-        </div>
-        <button class="btn-otp" onclick="sendOTP()">Get OTP</button>
-        <p class="terms">By continuing, you agree to our <a href="#">Terms &amp; Conditions</a></p>
-      </div>
-      <div id="ls2" style="display:none">
-        <p class="otp-note">OTP sent to +91 <strong id="otpTo"></strong></p>
-        <div class="otp-row" id="otpRow">
-          <input class="ob" type="text" maxlength="1" oninput="obInput(this,0)" />
-          <input class="ob" type="text" maxlength="1" oninput="obInput(this,1)" />
-          <input class="ob" type="text" maxlength="1" oninput="obInput(this,2)" />
-          <input class="ob" type="text" maxlength="1" oninput="obInput(this,3)" />
-          <input class="ob" type="text" maxlength="1" oninput="obInput(this,4)" />
-          <input class="ob" type="text" maxlength="1" oninput="obInput(this,5)" />
-        </div>
-        <button class="btn-otp" onclick="verifyOTP()">Verify OTP</button>
-        <p class="resend">Didn't get it? <a onclick="sendOTP()">Resend OTP</a></p>
-      </div>
-    </div>
-    <!-- Email -->
-    <div id="lp-email" style="display:none">
+    <!-- Sign In -->
+    <div id="lp-signin">
       <div id="lf-login">
-        <div class="fg"><label>Email</label><input type="email" id="emIn" placeholder="you@example.com" /></div>
-        <div class="fg"><label>Password</label><div class="pwrow"><input type="password" id="pwIn" placeholder="Password" /><button class="peye" onclick="togglePw('pwIn')">👁</button></div></div>
+        <div class="fg"><label>Email Address</label><input type="email" id="emIn" placeholder="you@example.com" /></div>
+        <div class="fg"><label>Password</label><div class="pwrow"><input type="password" id="pwIn" placeholder="Enter your password" onkeydown="if(event.key==='Enter') emailLogin()" /><button class="peye" onclick="togglePw('pwIn')">👁</button></div></div>
         <button class="btn-otp" onclick="emailLogin()">Sign In</button>
-        <p class="terms">New user? <a onclick="showSignup()">Create account</a></p>
+        <p class="terms">New to VibeCheck? <a onclick="setLTab('signup')" style="cursor:pointer;font-weight:600;color:var(--red)">Create an account</a></p>
       </div>
-      <div id="lf-signup" style="display:none">
+    </div>
+    <!-- Create Account (Sign Up) -->
+    <div id="lp-signup" style="display:none">
+      <div id="lf-signup">
         <div class="fg"><label>Full Name</label><input type="text" id="suName" placeholder="Your Name" /></div>
-        <div class="fg"><label>Email</label><input type="email" id="suEmail" placeholder="you@example.com" /></div>
+        <div class="fg"><label>Email Address</label><input type="email" id="suEmail" placeholder="you@example.com" /></div>
         <div class="fg"><label>Phone Number</label><input type="tel" id="suPhone" placeholder="10-digit mobile number" maxlength="10" /></div>
-        <div class="fg"><label>Password</label><div class="pwrow"><input type="password" id="suPw" placeholder="Create password" /><button class="peye" onclick="togglePw('suPw')">👁</button></div></div>
-        <button class="btn-otp" onclick="emailSignup()">Create Account</button>
-        <p class="terms">Already have an account? <a onclick="showEmailLogin()">Sign In</a></p>
+        <div class="fg"><label>Password</label><div class="pwrow"><input type="password" id="suPw" placeholder="Create password (min 6 chars)" onkeydown="if(event.key==='Enter') emailSignup()" /><button class="peye" onclick="togglePw('suPw')">👁</button></div></div>
+        <button class="btn-otp" onclick="emailSignup()">Create Account &amp; Sign In</button>
+        <p class="terms">Already have an account? <a onclick="setLTab('signin')" style="cursor:pointer;font-weight:600;color:var(--red)">Sign In</a></p>
       </div>
     </div>
     <div class="or-line"><span>OR</span></div>

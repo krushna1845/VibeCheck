@@ -173,6 +173,14 @@
                      (data.error && data.error.message) || (data.errors && JSON.stringify(data.errors)) || errorMsg;
         } else if (typeof data === 'string' && data.trim()) {
           errorMsg = data;
+        } else if (response.status === 401) {
+          errorMsg = 'Invalid email or password. If you are a new user, please click "Create Account" to register.';
+        } else if (response.status === 403) {
+          errorMsg = 'Access denied. You do not have permission for this action.';
+        } else if (response.status === 404) {
+          errorMsg = 'Requested resource not found.';
+        } else if (response.status === 409) {
+          errorMsg = 'An account with this email or phone number already exists.';
         }
         throw new ApiError(errorMsg, response.status, data);
       }

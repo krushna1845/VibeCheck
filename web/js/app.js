@@ -1213,8 +1213,23 @@ function setLTab(tab) {
   state.loginTab = tab;
   document.querySelectorAll('.ltab').forEach(b => b.classList.remove('active'));
   document.getElementById('lt-' + tab)?.classList.add('active');
-  document.getElementById('lp-mobile').style.display = tab === 'mobile' ? '' : 'none';
-  document.getElementById('lp-email').style.display = tab === 'email' ? '' : 'none';
+
+  const titleEl = document.getElementById('loginModalTitle');
+  if (tab === 'signup') {
+    if (titleEl) titleEl.textContent = 'Create New Account';
+  } else if (tab === 'mobile') {
+    if (titleEl) titleEl.textContent = 'Sign In with Mobile OTP';
+  } else {
+    if (titleEl) titleEl.textContent = 'Sign In to VibeCheck';
+  }
+
+  const pSignin = document.getElementById('lp-signin');
+  const pSignup = document.getElementById('lp-signup');
+  const pMobile = document.getElementById('lp-mobile');
+
+  if (pSignin) pSignin.style.display = tab === 'signin' ? '' : 'none';
+  if (pSignup) pSignup.style.display = tab === 'signup' ? '' : 'none';
+  if (pMobile) pMobile.style.display = tab === 'mobile' ? '' : 'none';
 }
 
 function sendOTP() {
@@ -1242,7 +1257,7 @@ function obInput(el, i) {
 
 async function verifyOTP() {
   showToast('ℹ️ Mobile OTP service is currently migrating. Please sign in or register with your Email & Password.');
-  setLTab('email');
+  setLTab('signin');
 }
 
 // REAL EMAIL LOGIN
@@ -1251,11 +1266,11 @@ async function emailLogin() {
   const password = document.getElementById('pwIn').value;
 
   if (!email || !password) {
-    showToast('Please enter email and password');
+    showToast('⚠️ Please enter both email and password');
     return;
   }
 
-  const btn = event?.currentTarget || document.querySelector('#lf-login .btn-otp');
+  const btn = event?.currentTarget || document.querySelector('#lf-login .btn-otp') || document.querySelector('#lp-signin .btn-otp');
   const originalText = btn ? btn.textContent : 'Sign In';
   if (btn) {
     btn.disabled = true;
@@ -1271,9 +1286,18 @@ async function emailLogin() {
     }
 
     loginUser(authRes.user);
+    showToast(`👋 Welcome back, ${authRes.user.firstName || 'User'}!`);
   } catch (err) {
     console.warn('[VibeCheck Auth] Login failed:', err.message);
-    showToast('❌ ' + (err.message || 'Invalid email or password'));
+    const msg = err.message || '';
+    if (err.status === 401 || msg.includes('401') || msg.toLowerCase().includes('invalid')) {
+      showToast('❌ Invalid email or password. New user? Click "Create Account" above.');
+      // Auto populate signup email if empty
+      const suEmail = document.getElementById('suEmail');
+      if (suEmail && !suEmail.value) suEmail.value = email;
+    } else {
+      showToast('❌ ' + (msg || 'Login failed'));
+    }
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -1290,20 +1314,29 @@ async function emailSignup() {
   const password = document.getElementById('suPw').value;
 
   if (!fullName || !email || !password) {
-    showToast('Please fill in all required fields');
+    showToast('⚠️ Please fill in all required fields (Name, Email, Password)');
+    return;
+  }
+  if (!email.includes('@') || !email.includes('.')) {
+    showToast('⚠️ Please enter a valid email address');
     return;
   }
   if (password.length < 6) {
-    showToast('Password must be at least 6 characters');
+    showToast('⚠️ Password must be at least 6 characters');
     return;
   }
 
-  const nameParts = fullName.split(' ');
-  const firstName = nameParts[0] || 'Customer';
-  const lastName = nameParts.slice(1).join(' ') || 'User';
+  const nameParts = fullName.split(' ').filter(Boolean);
+  const firstName = nameParts[0] || 'User';
+  const lastName = nameParts.slice(1).join(' ') || 'Customer';
 
-  const btn = event?.currentTarget || document.querySelector('#lf-signup .btn-otp');
-  const originalText = btn ? btn.textContent : 'Create Account';
+  // Format phone number to clean format
+  let cleanPhone = phone.replace(/[^0-9]/g, '');
+  if (cleanPhone.length > 10) cleanPhone = cleanPhone.slice(-10);
+  const formattedPhone = '+91' + cleanPhone;
+
+  const btn = event?.currentTarget || document.querySelector('#lf-signup .btn-otp') || document.querySelector('#lp-signup .btn-otp');
+  const originalText = btn ? btn.textContent : 'Create Account & Sign In';
   if (btn) {
     btn.disabled = true;
     btn.textContent = 'Creating Account...';
@@ -1315,7 +1348,7 @@ async function emailSignup() {
       password,
       firstName,
       lastName,
-      phoneNumber: phone.startsWith('+') ? phone : '+91' + phone,
+      phoneNumber: formattedPhone,
       roles: ['ROLE_CUSTOMER']
     });
 
@@ -1326,10 +1359,18 @@ async function emailSignup() {
     }
 
     loginUser(authRes.user);
-    showToast('🎉 Account created successfully!');
+    showToast(`🎉 Account created! Welcome, ${authRes.user.firstName}!`);
   } catch (err) {
     console.warn('[VibeCheck Auth] Registration failed:', err.message);
-    showToast('❌ ' + (err.message || 'Could not register account'));
+    const msg = err.message || '';
+    if (err.status === 409 || msg.toLowerCase().includes('already exists')) {
+      showToast('⚠️ Account already exists with this email. Switched to Sign In.');
+      setLTab('signin');
+      const emIn = document.getElementById('emIn');
+      if (emIn) emIn.value = email;
+    } else {
+      showToast('❌ ' + (msg || 'Could not register account'));
+    }
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -1413,13 +1454,11 @@ function togglePw(id) {
 }
 
 function showSignup() {
-  document.getElementById('lf-login').style.display = 'none';
-  document.getElementById('lf-signup').style.display = '';
+  setLTab('signup');
 }
 
 function showEmailLogin() {
-  document.getElementById('lf-signup').style.display = 'none';
-  document.getElementById('lf-login').style.display = '';
+  setLTab('signin');
 }
 
 // ============================================================
@@ -1466,17 +1505,33 @@ function showToast(msg) {
 // DROPDOWNS & GLOBAL SEARCH
 // ============================================================
 function toggleCityDropdown(event) {
-  event.stopPropagation();
+  if (event) event.stopPropagation();
   const drop = document.getElementById('cityDrop');
-  if (drop) drop.classList.toggle('show');
+  if (drop) {
+    const isShowing = drop.classList.contains('show');
+    closeDropdowns();
+    if (!isShowing) {
+      drop.classList.add('show');
+      const qInput = document.getElementById('cityQ');
+      if (qInput) {
+        qInput.value = '';
+        filterCities('');
+        setTimeout(() => qInput.focus(), 50);
+      }
+    }
+  }
 }
 
-function selectCity(city) {
+function selectCity(city, event) {
+  if (event) event.stopPropagation();
   state.selectedCity = city;
   const selCity = document.getElementById('selCity');
   if (selCity) selCity.textContent = city;
   const heading = document.getElementById('moviesHeading');
   if (heading) heading.textContent = `Now Showing in ${city}`;
+  document.querySelectorAll('.ci').forEach(el => {
+    el.classList.toggle('active', el.textContent.trim().toLowerCase() === city.toLowerCase());
+  });
   closeDropdowns();
   showToast(`City changed to ${city}`);
 }
@@ -1486,6 +1541,16 @@ function filterCities(query) {
   document.querySelectorAll('.ci').forEach(el => {
     el.style.display = el.textContent.toLowerCase().includes(q) ? '' : 'none';
   });
+}
+
+function handleCitySearchKey(event) {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    const firstVisible = Array.from(document.querySelectorAll('.ci')).find(el => el.style.display !== 'none');
+    if (firstVisible) {
+      selectCity(firstVisible.textContent.trim(), event);
+    }
+  }
 }
 
 function handleSearch(q) {
