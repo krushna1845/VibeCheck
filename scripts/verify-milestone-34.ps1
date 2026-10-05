@@ -229,7 +229,7 @@ Write-Host "--- SECTION 5: Runtime E2E Journey Verification Matrix ---" -Foregro
 
 $IsGatewayLive = $false
 try {
-    $gwHealth = Invoke-WebRequest -Uri ($GatewayUrl + "/actuator/health") -Method Get -TimeoutSec 2 -ErrorAction Stop
+    $gwHealth = Invoke-WebRequest -Uri ($GatewayUrl + "/actuator/health") -Method Get -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
     if ($gwHealth.StatusCode -eq 200) { $IsGatewayLive = $true }
 } catch {
     $IsGatewayLive = $false
@@ -239,12 +239,13 @@ if ($IsGatewayLive) {
     Write-Host "Live Gateway detected. Executing live endpoint tests..." -ForegroundColor Green
 
     $testEmail = "e2e_user_" + ([System.Guid]::NewGuid().ToString().Substring(0,8)) + "@vibecheck.io"
+    $randomPhone = "+91" + (Get-Random -Minimum 1000000000 -Maximum 9999999999).ToString()
     $regObj = @{
         email = $testEmail
         password = "Password123!"
         firstName = "E2E"
         lastName = "Tester"
-        phoneNumber = "+919876543210"
+        phoneNumber = $randomPhone
         roles = @("ROLE_CUSTOMER")
     }
     $regBody = $regObj | ConvertTo-Json

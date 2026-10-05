@@ -410,10 +410,18 @@ try {
 if ($gwUp) {
     Write-Log "INFO" "Gateway online - performing live runtime verification"
     $rnd = Get-Random -Minimum 1000 -Maximum 9999
-    $regBody = @{ username="m35user$rnd"; email="m35user$rnd@example.com"; password="Password123!" } | ConvertTo-Json
+    $rndPhone = "+91" + (Get-Random -Minimum 1000000000 -Maximum 9999999999).ToString()
+    $regBody = @{
+        email = "m35user$rnd@example.com"
+        password = "Password123!"
+        firstName = "M35"
+        lastName = "Tester"
+        phoneNumber = $rndPhone
+        roles = @("ROLE_CUSTOMER")
+    } | ConvertTo-Json
     try {
-        $regRes = Invoke-RestMethod -Uri "$GatewayUrl/auth/register" -Method Post -Body $regBody -ContentType "application/json" -TimeoutSec 5
-        if ($regRes -and ($regRes.token -or $regRes.accessToken)) {
+        $regRes = Invoke-RestMethod -Uri "$GatewayUrl/api/v1/auth/register" -Method Post -Body $regBody -ContentType "application/json" -TimeoutSec 5
+        if ($regRes -and $regRes.accessToken) {
             Record-Result "M35-E2E-01" "Live registration: JWT issued" "PASS"
         } else { Record-Result "M35-E2E-01" "Live registration unexpected response" "FAIL" }
     } catch { Record-Result "M35-E2E-01" "Live registration request error" "FAIL" $_.Exception.Message }
