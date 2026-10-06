@@ -62,7 +62,7 @@ spec:
               # Derive BROKER_ID from pod ordinal (kafka-0 -> 1, kafka-1 -> 2, kafka-2 -> 3)
               export KAFKA_BROKER_ID=$((${HOSTNAME##*-} + 1))
               # Derive per-broker advertised listener using stable headless DNS
-              export KAFKA_ADVERTISED_LISTENERS="PLAINTEXT://${HOSTNAME}.kafka-headless.{{ .Values.global.namespace }}.svc.cluster.local:9092,PLAINTEXT_CLIENT://kafka:9092"
+              export KAFKA_ADVERTISED_LISTENERS="PLAINTEXT://${HOSTNAME}.kafka-headless.{{ .Values.global.namespace }}.svc.cluster.local:9092,PLAINTEXT_CLIENT://kafka:29092"
               # Remove stale meta.properties to avoid broker ID mismatch on restart
               rm -f /var/lib/kafka/data/meta.properties
               unset KAFKA_PORT

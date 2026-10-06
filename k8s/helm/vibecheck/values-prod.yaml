@@ -48,6 +48,7 @@ services:
       enabled: true
       minReplicas: 2
       maxReplicas: 6
+      targetCPUUtilizationPercentage: 70
     resources:
       requests:
         cpu: 300m
@@ -62,6 +63,7 @@ services:
       enabled: true
       minReplicas: 2
       maxReplicas: 6
+      targetCPUUtilizationPercentage: 70
     resources:
       requests:
         cpu: 300m
@@ -76,6 +78,7 @@ services:
       enabled: true
       minReplicas: 3
       maxReplicas: 8
+      targetCPUUtilizationPercentage: 65
     resources:
       requests:
         cpu: 400m
@@ -112,6 +115,7 @@ services:
       enabled: true
       minReplicas: 3
       maxReplicas: 8
+      targetCPUUtilizationPercentage: 65
     resources:
       requests:
         cpu: 400m
@@ -126,6 +130,7 @@ services:
       enabled: true
       minReplicas: 2
       maxReplicas: 6
+      targetCPUUtilizationPercentage: 70
     resources:
       requests:
         cpu: 300m
