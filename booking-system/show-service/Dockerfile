@@ -3,7 +3,9 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd -g 10001 appgroup \
-    && useradd -u 10001 -g appgroup -s /bin/sh -m appuser
+    && useradd -u 10001 -g appgroup -s /bin/sh -m appuser \
+    && mkdir -p /app/logs \
+    && chown -R 10001:10001 /app
 COPY --chown=10001:10001 target/show-service-*.jar app.jar
 USER 10001:10001
 EXPOSE 8083

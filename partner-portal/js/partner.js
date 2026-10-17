@@ -258,27 +258,68 @@
   }
 
   // ─── Authentication ───
-  function handleLogin(e) {
+  async function handleLogin(e) {
     e.preventDefault();
     const email = els.loginEmail.value.trim();
     const password = els.loginPassword.value;
 
     if (!email || !password) {
-      showToast('Please provide email and password', 'error');
+      showToast('Please provide both email and password', 'error');
       return;
     }
 
-    // Set demo token
-    const token = 'partner_jwt_' + Math.random().toString(36).substring(2);
-    state.token = token;
-    state.user.email = email;
-    state.user.name = email.split('@')[0].toUpperCase() + ' Operations';
+    const loginBtn = document.getElementById('loginBtn');
+    const origText = loginBtn ? loginBtn.innerHTML : 'Sign In';
+    if (loginBtn) {
+      loginBtn.disabled = true;
+      loginBtn.innerHTML = '<span class="material-icons-round">hourglass_top</span> Verifying Partner Authorization...';
+    }
 
-    localStorage.setItem('vibe_partner_token', token);
-    localStorage.setItem('vibe_partner_user', JSON.stringify(state.user));
+    try {
+      // Call Real Auth API Gateway
+      const res = await fetch('http://localhost:8079/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
 
-    showToast('Signed in successfully as Theatre Partner', 'success');
-    showApp();
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || data.message || (data.error && data.error.message) || 'Invalid email or password');
+      }
+
+      const user = data.user;
+      const roles = user?.roles || [];
+
+      // Strict RBAC: account MUST have ROLE_THEATRE_OWNER or ROLE_ADMIN
+      const hasPartnerAuth = roles.includes('ROLE_THEATRE_OWNER') || roles.includes('ROLE_ADMIN');
+      if (!hasPartnerAuth) {
+        throw new Error(`⛔ Access Denied: Your account (${email}) has role "${roles.join(', ') || 'ROLE_CUSTOMER'}". Only verified Theatre Partners (ROLE_THEATRE_OWNER) authorized by Super Admin can access this cinema management console.`);
+      }
+
+      state.token = data.accessToken;
+      state.user = {
+        name: (user.firstName + ' ' + (user.lastName || '')).trim() || 'Theatre Partner',
+        email: user.email,
+        mobile: user.phoneNumber || '+91 98765 43201',
+        org: 'PVR Inox Multiplex Network',
+        role: roles.includes('ROLE_THEATRE_OWNER') ? 'ROLE_THEATRE_OWNER' : 'ROLE_ADMIN'
+      };
+
+      localStorage.setItem('vibe_partner_token', state.token);
+      localStorage.setItem('vibe_partner_user', JSON.stringify(state.user));
+
+      showToast(`✅ Welcome, ${state.user.name}! Theatre operations session active.`, 'success');
+      showApp();
+    } catch (err) {
+      console.warn('[Partner Portal] Auth error:', err);
+      showToast(err.message, 'error');
+    } finally {
+      if (loginBtn) {
+        loginBtn.disabled = false;
+        loginBtn.innerHTML = origText;
+      }
+    }
   }
 
   function handleLogout() {

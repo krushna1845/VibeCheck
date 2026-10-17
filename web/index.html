@@ -45,6 +45,14 @@
       </div>
     </div>
     <div class="header-right">
+      <div class="header-portal-links" style="display:flex;align-items:center;gap:8px;margin-right:12px;">
+        <a href="/partner-portal/index.html" title="Theatre Partner Console (Requires ROLE_THEATRE_OWNER)" style="color:#00b4d8;font-size:12px;font-weight:600;text-decoration:none;display:flex;align-items:center;gap:4px;padding:6px 10px;border-radius:6px;border:1px solid rgba(0,180,216,0.3);background:rgba(0,180,216,0.08);white-space:nowrap;">
+          <span>🏢 Partner Portal</span>
+        </a>
+        <a href="/admin-portal/index.html" title="Super Admin Console (Requires ROLE_ADMIN)" style="color:#a855f7;font-size:12px;font-weight:600;text-decoration:none;display:flex;align-items:center;gap:4px;padding:6px 10px;border-radius:6px;border:1px solid rgba(168,85,247,0.3);background:rgba(168,85,247,0.08);white-space:nowrap;">
+          <span>🛡️ Admin</span>
+        </a>
+      </div>
       <button class="btn-signin" id="loginBtn" onclick="openLoginModal()">Sign In</button>
       <div class="user-menu" id="userMenu" style="display:none">
         <div class="avatar" id="userAvatar" onclick="toggleUserDrop()">K</div>

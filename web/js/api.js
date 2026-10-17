@@ -328,10 +328,10 @@
       return fetchWithAuth(`/api/v1/bookings/${reference}`);
     },
 
-    async confirmBooking({ bookingReference, paymentId }) {
+    async confirmBooking({ bookingReference, paymentId, status = 'SUCCESS' }) {
       return fetchWithAuth('/api/v1/bookings/confirm', {
         method: 'POST',
-        body: JSON.stringify({ bookingReference, paymentId })
+        body: JSON.stringify({ bookingReference, paymentId, status })
       });
     },
 

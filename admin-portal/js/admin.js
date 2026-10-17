@@ -171,9 +171,9 @@
     renderDashboard();
   }
 
-  function handleLogin(e) {
+  async function handleLogin(e) {
     e.preventDefault();
-    const email = document.getElementById('loginEmail').value;
+    const email = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPassword').value;
 
     if (!email || !password) {
@@ -181,22 +181,53 @@
       return;
     }
 
-    // Simulate login (in production, call /api/v1/auth/login)
     const btn = document.getElementById('loginBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="material-icons-round">hourglass_top</span> Signing In...';
+    const origText = btn ? btn.innerHTML : 'Sign In';
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="material-icons-round">hourglass_top</span> Authenticating Admin...';
+    }
 
-    setTimeout(() => {
-      // Demo: accept any credentials for admin
-      state.token = 'demo-admin-token-' + Date.now();
-      state.user = { name: 'Admin User', email: email, roles: ['ROLE_ADMIN'] };
+    try {
+      const res = await fetch('http://localhost:8079/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || data.message || (data.error && data.error.message) || 'Invalid email or password');
+      }
+
+      const user = data.user;
+      const roles = user?.roles || [];
+
+      if (!roles.includes('ROLE_ADMIN')) {
+        throw new Error(`⛔ Access Denied: Account (${email}) lacks Super Admin permissions. Only accounts with "ROLE_ADMIN" can access Central Mission Control.`);
+      }
+
+      state.token = data.accessToken;
+      state.user = {
+        name: (user.firstName + ' ' + (user.lastName || '')).trim() || 'Super Admin',
+        email: user.email,
+        roles: roles
+      };
+
       localStorage.setItem('admin_token', state.token);
       localStorage.setItem('admin_user', JSON.stringify(state.user));
-      showToast('Welcome back, Admin!', 'success');
+
+      showToast('Welcome back, Super Admin!', 'success');
       showApp();
-      btn.disabled = false;
-      btn.innerHTML = '<span class="material-icons-round">login</span> Sign In';
-    }, 800);
+    } catch (err) {
+      console.warn('[Admin Portal] Auth error:', err);
+      showToast(err.message, 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = origText;
+      }
+    }
   }
 
   function handleLogout() {

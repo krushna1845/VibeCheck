@@ -102,6 +102,11 @@ let state = {
   foodCart: {},
   currentBooking: null,
   bookings: [],
+  movies: [],
+  theatres: [],
+  cities: [],
+  currentMovieShows: [],
+  showSeats: [],
   movieFilter: 'now',
   heroSlide: 0,
   heroTimer: null,
@@ -181,6 +186,18 @@ async function loadCatalogData() {
     }
   } catch (e) {
     console.debug('[VibeCheck] Cities API offline, using default cities.');
+  }
+
+  // 3. Fetch Theatres (for ID→name lookup in show rendering)
+  try {
+    const theatreData = await window.VibeCheckApi.theatres.getAllTheatres(0, 50);
+    const theatreList = theatreData.content || (Array.isArray(theatreData) ? theatreData : []);
+    if (theatreList.length > 0) {
+      state.theatres = theatreList;
+      console.log(`[VibeCheck] Loaded ${theatreList.length} theatres.`);
+    }
+  } catch (e) {
+    console.debug('[VibeCheck] Theatres API offline, using fallback name mapping.');
   }
 }
 
@@ -382,52 +399,135 @@ async function loadMovieShows(movie) {
   try {
     const showPage = await window.VibeCheckApi.shows.getShowsByMovie(movie.id);
     const shows = showPage.content || (Array.isArray(showPage) ? showPage : []);
+    state.currentMovieShows = shows;
 
-    if (shows.length > 0) {
-      renderRealShows(shows, movie);
-    } else {
-      showContainer.innerHTML = '<div style="text-align:center;padding:30px 15px;color:#888;"><h5>No live scheduled shows found</h5><p style="font-size:13px;margin-top:6px;">Check other dates or select another movie from the catalog.</p></div>';
+    if (shows.length === 0) {
+      showContainer.innerHTML = '<div style="text-align:center;padding:30px 15px;color:#888;"><h5>No live scheduled shows found for this title</h5><p style="font-size:13px;margin-top:6px;">Check upcoming dates or select another movie from the catalogue.</p></div>';
+      return;
     }
+
+    // Determine available show dates
+    const availableDatesMap = {};
+    shows.forEach(s => {
+      const dStr = new Date(s.startTime).toDateString();
+      if (!availableDatesMap[dStr]) availableDatesMap[dStr] = [];
+      availableDatesMap[dStr].push(s);
+    });
+
+    // If current selectedDate has no shows, auto switch to the first date that has shows
+    if (!availableDatesMap[state.selectedDate]) {
+      const firstAvailableDate = Object.keys(availableDatesMap)[0];
+      if (firstAvailableDate) {
+        state.selectedDate = firstAvailableDate;
+        renderDateTabs();
+      }
+    }
+
+    renderShowsForCurrentDate(movie);
   } catch (err) {
-    console.warn('[VibeCheck] Backend shows unavailable for this movie:', err.message);
+    console.warn('[VibeCheck] Backend shows error for movie:', err.message);
     showContainer.innerHTML = `<div style="text-align:center;padding:30px 15px;color:#e74c3c;"><h5>Unable to load shows</h5><p style="font-size:13px;margin-top:6px;">${err.message || 'Please check connection to API Gateway'}</p></div>`;
   }
 }
 
-function renderRealShows(shows, movie) {
+function renderShowsForCurrentDate(movie) {
   const container = document.getElementById('theatreShows');
-  container.innerHTML = `
-    <div class="th-show">
-      <div class="th-name">
-        <span>VibeCheck Partner Cinemas</span>
+  if (!container) return;
+
+  const shows = state.currentMovieShows || [];
+  const selectedDateStr = state.selectedDate || new Date().toDateString();
+
+  // Filter shows matching the selected calendar date
+  const filteredShows = shows.filter(s => new Date(s.startTime).toDateString() === selectedDateStr);
+
+  if (filteredShows.length === 0) {
+    // Show empty state with clickable shortcut buttons to dates with available shows
+    const otherDates = [...new Set(shows.map(s => new Date(s.startTime).toDateString()))];
+    let shortcutsHtml = '';
+    if (otherDates.length > 0) {
+      shortcutsHtml = `
+        <div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+          ${otherDates.map(dStr => `
+            <button class="btn-sm" style="background:#e50914;color:#fff;border:none;padding:6px 14px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:600;"
+              onclick="switchToDate('${dStr}')">
+              📅 ${dStr.split(' ').slice(0, 3).join(' ')}
+            </button>
+          `).join('')}
+        </div>
+      `;
+    }
+    container.innerHTML = `
+      <div style="text-align:center;padding:24px 15px;background:rgba(255,255,255,0.02);border:1px dashed #333;border-radius:10px;">
+        <h5 style="color:#aaa;margin:0 0 6px 0;">No shows available on ${selectedDateStr}</h5>
+        <p style="font-size:13px;color:#777;margin:0;">Select another date from the tabs above or choose below:</p>
+        ${shortcutsHtml}
+      </div>
+    `;
+    return;
+  }
+
+  // Group filtered shows by Theatre/Screen
+  const byTheatre = {};
+  // Build theatre-name lookup: static known IDs + dynamic state.theatres cache
+  const THEATRE_ID_MAP = {
+    'af8c94d1-7b42-4360-a712-fe501b4dc02f': 'INOX Megaplex',
+    '381c77d0-6b42-4360-a712-fe501b4dc02f': 'PVR Icon Infiniti'
+  };
+  if (state.theatres && state.theatres.length > 0) {
+    state.theatres.forEach(th => { if (th.id && th.name) THEATRE_ID_MAP[th.id] = th.name; });
+  }
+  filteredShows.forEach(s => {
+    const thName = s.theatreName
+      || (s.theatreId && THEATRE_ID_MAP[s.theatreId])
+      || (s.screenId && s.screenId.startsWith('0e2d') ? 'INOX Megaplex' : 'PVR Icon Infiniti');
+    if (!byTheatre[thName]) byTheatre[thName] = [];
+    byTheatre[thName].push(s);
+  });
+
+
+  container.innerHTML = Object.entries(byTheatre).map(([theatreName, tShows]) => `
+    <div class="th-show" style="margin-bottom:18px;">
+      <div class="th-name" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <span style="font-weight:600;font-size:15px;color:#fff;">📍 ${theatreName}</span>
         <div class="th-features"><span class="th-feat">Dolby Atmos</span><span class="th-feat">4K Laser</span><span class="th-feat">M-Ticket</span></div>
       </div>
-      <div class="time-slots">
-        ${shows.map(s => {
+      <div class="time-slots" style="display:flex;gap:10px;flex-wrap:wrap;">
+        ${tShows.map(s => {
           const dt = new Date(s.startTime);
-          const timeStr = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const timeStr = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+          const price = s.defaultPrice || s.basePrice || (s.seats && s.seats[0] && s.seats[0].price) || 350;
+          const format = s.experienceType || (s.screenId && s.screenId.includes('0e2d') ? 'IMAX' : 'Atmos');
           return `
-            <button class="time-slot" onclick="selectRealShow('${s.id}', 'VibeCheck Partner Cinemas', '${timeStr}', this)">
-              ${timeStr} · ₹${s.basePrice || 250}
+            <button class="time-slot" onclick="selectRealShow('${s.id}', '${theatreName}', '${timeStr}', this)"
+              style="padding:10px 14px;border-radius:8px;border:1px solid #444;background:#1a1d24;color:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;min-width:110px;">
+              <span style="font-size:14px;font-weight:700;color:#2ecc71;">${timeStr}</span>
+              <span style="font-size:11px;color:#aaa;margin-top:2px;">₹${price} · ${format}</span>
             </button>
           `;
         }).join('')}
       </div>
     </div>
-  `;
+  `).join('');
+}
+
+function switchToDate(dateStr) {
+  state.selectedDate = dateStr;
+  renderDateTabs();
+  renderShowsForCurrentDate(state.selectedMovie);
 }
 
 function selectRealShow(showId, theatreName, timeStr, btnEl) {
-  state.selectedShow = { id: showId };
+  const showObj = (state.currentMovieShows || []).find(s => s.id === showId) || { id: showId };
+  state.selectedShow = showObj;
   state.selectedTheatre = theatreName;
   state.selectedTime = timeStr;
   document.querySelectorAll('.time-slot').forEach(s => s.classList.remove('active'));
-  btnEl.classList.add('active');
+  if (btnEl) btnEl.classList.add('active');
 
   setTimeout(() => {
     closeMovieModal();
     startBooking();
-  }, 300);
+  }, 200);
 }
 
 // ============================================================
@@ -450,10 +550,14 @@ function generateDates() {
 
 function renderDateTabs() {
   const dates = state.datesArr || generateDates();
+  state.datesArr = dates;
   const selectedDate = state.selectedDate || dates[0].full;
   if (!state.selectedDate) state.selectedDate = selectedDate;
 
-  document.getElementById('dateTabs').innerHTML = dates.map(d => `
+  const dateTabsEl = document.getElementById('dateTabs');
+  if (!dateTabsEl) return;
+
+  dateTabsEl.innerHTML = dates.map(d => `
     <div class="date-tab ${d.full === state.selectedDate ? 'active' : ''}" onclick="selectDate('${d.full}', this)">
       <span class="dt-day">${d.day}</span>
       <span class="dt-num">${d.num}</span>
@@ -465,8 +569,10 @@ function renderDateTabs() {
 function selectDate(dateStr, el) {
   state.selectedDate = dateStr;
   document.querySelectorAll('.date-tab').forEach(d => d.classList.remove('active'));
-  el.classList.add('active');
+  if (el) el.classList.add('active');
+  renderShowsForCurrentDate(state.selectedMovie);
 }
+
 
 // ============================================================
 // BOOKING WIZARD & SEAT MAP
@@ -917,7 +1023,8 @@ async function processPayment() {
     // 2. Call Real Booking Service Confirm (POST /api/v1/bookings/confirm)
     const confirmRes = await window.VibeCheckApi.bookings.confirmBooking({
       bookingReference: state.currentBooking.bookingReference,
-      paymentId: String(paymentId)
+      paymentId: String(paymentId),
+      status: 'SUCCESS'
     });
 
     const confirmedBooking = confirmRes.data || confirmRes;
